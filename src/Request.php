@@ -8,29 +8,8 @@ use DateTime;
 
 readonly class Request
 {
-    private array $tokeData;
+    private array $tokenData;
 
-    /**
-     * Crée une nouvelle requête HTTP.
-     *
-     * @param HTTPMethod $method La méthode HTTP (GET, POST, PUT, DELETE, etc.)
-     * @param string $path Le chemin de la requête (ex: '/api/users/123')
-     * @param mixed $body Le corps de la requête (généralement un objet décodé depuis JSON)
-     * @param mixed $bearerToken Le token Bearer d'authentification
-     * @param ContentType $accept Le type de contenu accepté par le client
-     * @param DateTime $requestTime L'heure de la requête
-     *
-     * @example
-     * ```php
-     * $request = new Request(
-     *     method: HTTPMethod::POST,
-     *     path: '/api/users',
-     *     body: ['name' => 'John', 'email' => 'john@example.com'],
-     *     bearerToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-     *     accept: ContentType::JSON
-     * );
-     * ```
-     */
     public function __construct(
         public HTTPMethod  $method = HTTPMethod::GET,
         public string      $path = '/',
@@ -43,50 +22,21 @@ readonly class Request
     }
 
     /**
-     * Récupère les données du token JWT décodé.
-     *
-     * Le token est décodé et mis en cache lors du premier appel.
-     * Retourne null si le token est invalide ou expiré.
-     *
-     * @return array|null Les données du payload JWT ou null si le token est invalide
-     *
-     * @example
-     * ```php
-     * $request = Request::fromHTTP();
-     * $tokenData = $request->getTokenData();
-     * if ($tokenData) {
-     *     $userId = $tokenData['user_id'];
-     * }
-     * ```
+     * @return array|null Payload JWT décodé, null si invalide. Cache au premier appel.
      */
     public function getTokenData(): ?array
     {
-        if (!isset($this->tokeData)) {
+        if (!isset($this->tokenData)) {
             $data = Token::tryDecode($this->bearerToken);
             if ($data !== false) {
-                $this->tokeData = $data;
+                $this->tokenData = $data;
             }
         }
-        return $this->tokeData ?? null;
+        return $this->tokenData ?? null;
     }
 
     /**
-     * Crée une requête à partir des variables serveur HTTP.
-     *
-     * Extrait automatiquement la méthode, le chemin, le corps, le token Bearer,
-     * le Content-Type accepté et l'heure de la requête depuis les variables
-     * superglobales PHP ($_SERVER, etc.).
-     *
-     * @return Request Une instance de Request remplie avec les données HTTP
-     *
-     * @example
-     * ```php
-     * // Dans un contrôleur ou route handler
-     * $request = Request::fromHTTP();
-     * $method = $request->method; // HTTPMethod::GET, POST, etc.
-     * $path = $request->path; // '/api/users/123'
-     * $body = $request->body; // Objet décodé depuis JSON
-     * ```
+     * Parse les superglobales PHP ($_SERVER, headers, php://input).
      */
     public static function fromHTTP(): Request
     {
