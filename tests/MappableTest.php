@@ -3,6 +3,7 @@
 namespace Tivins\WebappTests;
 
 use DateTime;
+use Exception;
 use PHPUnit\Framework\TestCase;
 use Tivins\Webapp\Cond;
 use Tivins\Webapp\Conditions;
@@ -59,9 +60,9 @@ class MappableTestMockRegistry extends DatabaseRegistry
 
 class MappableTestRegistries extends Registries
 {
-    public static function mock(Database $database): MappableTestMockRegistry
+    public static function mock(): MappableTestMockRegistry
     {
-        return self::get(MappableTestMockRegistry::class, $database);
+        return self::get(MappableTestMockRegistry::class);
     }
 }
 
@@ -74,11 +75,15 @@ class MappableTest extends TestCase
         parent::setUp();
         $tmp = TestUtil::getTempFilename();
         $this->database = new Database(new SQLiteConnector($tmp));
+        Registries::init($this->database);
     }
 
+    /**
+     * @throws Exception
+     */
     public function test2(): void
     {
-        $registry = MappableTestRegistries::mock($this->database);
+        $registry = MappableTestRegistries::mock();
         $registry->createTable($this->database);
 
         $obj = new MappableTestMock(title: 'invalid', isOpen: true);
@@ -86,9 +91,12 @@ class MappableTest extends TestCase
         $registry->save($obj);
     }
 
+    /**
+     * @throws Exception
+     */
     public function test1(): void
     {
-        $registry = MappableTestRegistries::mock($this->database);
+        $registry = MappableTestRegistries::mock();
         $registry->createTable($this->database);
         self::assertEquals([], $registry->findAll());
 

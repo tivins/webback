@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tivins\Webapp;
 
-use Exception;
+use Throwable;
 
 /**
  * Gestionnaire global des exceptions non capturées.
@@ -33,7 +33,7 @@ class UncaughtException
      */
     public static function init(): void
     {
-        set_exception_handler(function (Exception $e) {
+        set_exception_handler(function (Throwable $e) {
             $request = Request::fromHTTP();
             if ($request->accept == ContentType::JSON) {
                 $body = [

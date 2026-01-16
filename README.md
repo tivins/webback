@@ -85,11 +85,15 @@ class MyObjectRegistry extends DatabaseRegistry
 Ensuite, afin de permettre de gérer les instances de DatabaseRegistry, il est possible d'utiliser le mécanisme `Registries`.
 
 ```php
+// Initialisation (une seule fois au démarrage de l'application)
+$database = new Database(new MySQLConnector(...));
+Registries::init($database);
+
 class MyApplicationRegistries extends Registries
 {
-    public static function myObjects(Database $database): MyObjectRegistry
+    public static function myObjects(): MyObjectRegistry
     {
-        return self::get(MyObjectRegistry::class, $database);
+        return self::get(MyObjectRegistry::class);
     }
 }
 ```
