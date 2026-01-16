@@ -98,7 +98,7 @@ readonly class Request
             body: json_decode(file_get_contents("php://input")),
             bearerToken: str_replace('Bearer ', '', $headers['Authorization'] ?? $headers['authorization'] ?? ''),
             accept: ContentType::tryFrom(substr($accept, 0, strpos($accept, ','))) ?? ContentType::JSON,
-            requestTime: DateTime::createFromFormat('U', $_SERVER['REQUEST_TIME'] ?? time()),
+            requestTime: DateTime::createFromFormat('U', (string) ($_SERVER['REQUEST_TIME'] ?? time())),
         );
     }
 }
