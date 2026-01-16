@@ -30,7 +30,8 @@
     "phpunit/phpunit": ">=12.5.4"
   },
   "scripts": {
-    "test": "phpunit",
-    "test:debug": "phpunit --debug"
+    "test": "phpunit --no-coverage",
+    "test:debug": "phpunit --debug --no-coverage",
+    "test:coverage": "phpunit --coverage-html .tmp/coverage/html --coverage-text --coverage-clover .tmp/coverage/coverage.xml"
   }
 }

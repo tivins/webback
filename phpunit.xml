@@ -22,13 +22,4 @@
         <testdoxText outputFile=".tmp/results/testdox.txt"/>
     </logging>
 
-    <coverage>
-        <report>
-            <html outputDirectory=".tmp/coverage/html" />
-            <text outputFile=".tmp/coverage/coverage.txt"/>
-            <clover outputFile=".tmp/coverage/coverage.xml" />
-            <php outputFile=".tmp/coverage.php"/>
-        </report>
-    </coverage>
-
 </phpunit>
