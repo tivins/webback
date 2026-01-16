@@ -57,6 +57,7 @@ jobs:
         run: |
           mkdir -p .tmp/cache
           mkdir -p .tmp/results
+          mkdir -p .tmp/coverage/html
 
       - name: Run test suite
         env:
