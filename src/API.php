@@ -47,22 +47,22 @@ class API
         return $this;
     }
 
-    public function get(RouteMenu $route): static
+    public function get(string $pattern, string $class): static
     {
         $this->routesByMethod[HTTPMethod::GET->value][] = [
-            'pattern' => "~^$this->basePath$route->pattern$~",
-            'class' => $route->class,
-            'regex' => $route->pattern
+            'pattern' => "~^$this->basePath$pattern$~",
+            'class' => $class,
+            'regex' => $pattern
         ];
         return $this;
     }
 
-    public function post(RouteMenu $route): static
+    public function post(string $pattern, string $class): static
     {
         $this->routesByMethod[HTTPMethod::POST->value][] = [
-            'pattern' => "~^$this->basePath$route->pattern$~",
-            'class' => $route->class,
-            'regex' => $route->pattern
+            'pattern' => "~^$this->basePath$pattern$~",
+            'class' => $class,
+            'regex' => $pattern
         ];
         return $this;
     }
