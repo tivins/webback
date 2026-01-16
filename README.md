@@ -156,3 +156,33 @@ Trigger and get contents :
 ```php
 $response = $api->execute($request);
 ```
+
+## Dev notes
+
+Using PHP Builtin webserver :
+
+1. Create a router file `pws_router.php`
+    
+    ```php
+    <?php
+    require "vendor/autoload.php";
+    return \Tivins\Webapp\PIWSRouter::init(__dir__);
+    ```
+   
+2. Create you index.php:
+
+    ```php
+    var_dump($_SERVER['REQUEST_URI']);
+    ```
+   
+3. Run the server :
+
+    ```bash
+   php -S 127.0.0.1:8000 -t . pws_router.php
+    ```
+   
+4. HTTP Testing
+
+* http://127.0.0.1:8000/ -> index.php, '/'
+* http://127.0.0.1:8000/test -> index.php '/test'
+* http://127.0.0.1:8000/existing-file.css -> /existing-file.css
