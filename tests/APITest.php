@@ -51,12 +51,21 @@ class APITest extends TestCase
     {
         $api = new API();
         $routes = [
-            '/users' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
-            '/users/(\d+)' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
-            '/users' => new RouteMenu(MockRoute::class, HTTPMethod::POST),
+            new RouteMenu('/users',MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/users/(\d+)', MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/users', MockRoute::class, HTTPMethod::POST),
         ];
-        
+
         $result = $api->setRoutes($routes);
+        self::assertSame($api, $result);
+    }
+
+    public function testSetRoutesWithFluent(): void
+    {
+        $api = new API();
+        $result = $api->get(new RouteMenu('/users', MockRoute::class))
+            ->get(new RouteMenu('/users/(\d+)', MockRoute::class))
+            ->post(new RouteMenu('/users', MockRoute::class));
         self::assertSame($api, $result);
     }
 
@@ -64,7 +73,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            '/users' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         $request = new Request(method: HTTPMethod::GET, path: '/unknown');
@@ -81,7 +90,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            '/users' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
+             new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         // Route existe pour GET mais pas pour POST
@@ -95,7 +104,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            '/users' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         $request = new Request(method: HTTPMethod::GET, path: '/users');
@@ -109,7 +118,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            '/users/(\d+)' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/users/(\d+)', MockRoute::class, HTTPMethod::GET),
         ]);
 
         $request = new Request(method: HTTPMethod::GET, path: '/users/123');
@@ -125,7 +134,7 @@ class APITest extends TestCase
     {
         $api = new API('/api/v1');
         $api->setRoutes([
-            '/users' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
+             new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         // Sans le basePath, la route ne devrait pas matcher
@@ -143,10 +152,10 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            '/items' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/items', MockRoute::class, HTTPMethod::GET),
         ]);
         $api->setRoutes([
-            '/items' => new RouteMenu(MockRoute::class, HTTPMethod::POST),
+            new RouteMenu('/items', MockRoute::class, HTTPMethod::POST),
         ]);
 
         // Test GET
@@ -164,8 +173,8 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            '/users/.*' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
-            '/users/special' => new RouteMenu(MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/users/.*', MockRoute::class, HTTPMethod::GET),
+            new RouteMenu('/users/special', MockRoute::class, HTTPMethod::GET),
         ]);
 
         // La première route qui matche devrait être utilisée

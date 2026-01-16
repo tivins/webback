@@ -80,7 +80,7 @@ class Token
         }
         // $header = json_decode(self::base64url_decode($parts[0]), true);
         $payload = json_decode(self::base64url_decode($parts[1]), true);
-        if ($payload['exp'] < time()) {
+        if ($payload === null || $payload['exp'] < time()) {
             throw new Exception("token expired");
         }
         $signature = $parts[2];

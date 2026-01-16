@@ -37,13 +37,33 @@ class API
      */
     public function setRoutes(array $routes): static
     {
-        foreach ($routes as $regex => $route) {
+        foreach ($routes as $route) {
             $this->routesByMethod[$route->method->value][] = [
-                'pattern' => "~^$this->basePath$regex$~",
+                'pattern' => "~^$this->basePath$route->pattern$~",
                 'class' => $route->class,
-                'regex' => $regex
+                'regex' => $route->pattern
             ];
         }
+        return $this;
+    }
+
+    public function get(RouteMenu $route): static
+    {
+        $this->routesByMethod[HTTPMethod::GET->value][] = [
+            'pattern' => "~^$this->basePath$route->pattern$~",
+            'class' => $route->class,
+            'regex' => $route->pattern
+        ];
+        return $this;
+    }
+
+    public function post(RouteMenu $route): static
+    {
+        $this->routesByMethod[HTTPMethod::POST->value][] = [
+            'pattern' => "~^$this->basePath$route->pattern$~",
+            'class' => $route->class,
+            'regex' => $route->pattern
+        ];
         return $this;
     }
 
@@ -73,7 +93,7 @@ class API
                 return (new $compiled['class'])->trigger($request, $matches);
             }
         }
-        return new HTTPResponse(code:404, messages: [
+        return new HTTPResponse(code: 404, messages: [
             new Message("Route not found {$request->method->value}:$request->path", MessageType::Error),
         ]);
     }

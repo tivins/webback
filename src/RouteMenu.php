@@ -18,15 +18,18 @@ readonly class RouteMenu
      * @param HTTPMethod $method La méthode HTTP acceptée (GET, POST, PUT, DELETE, etc.)
      *
      * @example
-     * ```php
-     * $route = new RouteMenu(UserController::class, HTTPMethod::GET);
+     *
+     * <code>
+     * $route = new RouteMenu('/users/(\d+)', UserController::class, HTTPMethod::GET);
      * // Utilisé avec API::setRoutes():
-     * $api->setRoutes(['/users/(\d+)' => $route]);
-     * ```
+     * $api->setRoutes([$route]);
+     * </code>
+     *
      */
     public function __construct(
+        public string     $pattern,
         public string     $class,
-        public HTTPMethod $method
+        public HTTPMethod $method = HTTPMethod::GET,
     )
     {
     }

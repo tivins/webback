@@ -1,8 +1,9 @@
 {
-  "name": "tivins/webapp",
+  "name": "tivins/webback",
   "minimum-stability": "dev",
   "type": "library",
   "license": "MIT",
+  "version": "1.0.0",
   "authors": [
     {
       "name": "Tivins",
