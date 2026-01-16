@@ -5,25 +5,39 @@
 Pour utiliser une ou plusieurs bases de données, il faut créer autant de connecteurs qui de bases liées.
 Il existe différents connecteurs pour chaque type de base de données (SQLite, MySQL, etc.).
 
-```php
-use \Tivins\Webapp\MySQLConnector;
-use \Tivins\Webapp\Database;
+* MySQL
+    ```php
+    use \Tivins\Webapp\MySQLConnector;
+    use \Tivins\Webapp\Database;
+    
+    $connector = new MySQLConnector('my_db', 'root', 'password');
+    $database = new Database($connector);
+    ```
+  
+    Notez que vous pouvez également configurer le `host` et le `port`.
 
-$connector = new MySQLConnector('my_db', 'root', 'password');
-$database = new Database($connector);
-```
+* SQLite
 
-Exemple avec SQLite
+    ```php
+    use \Tivins\Webapp\SQLiteConnector;
+    use \Tivins\Webapp\Database;
+    
+    $connector = new SQLiteConnector(__dir__ . '/data/db.sqlite');
+    $database = new Database($connector);
+    ```
 
-```php
-use \Tivins\Webapp\SQLiteConnector;
-use \Tivins\Webapp\Database;
+* `NativeConnector`
 
-$connector = new SQLiteConnector(__dir__ . '/data/db.sqlite');
-$database = new Database($connector);
-```
+    ```php
+    use \Tivins\Webapp\NativeConnector;
+    use \Tivins\Webapp\Database;
+    use \Tivins\Webapp\DatabaseType;
 
-Voir également `NativeConnector`.
+    $pdo = getExistingPDOInstanceFromAnywhere();
+    $connector = new \Tivins\Webapp\NativeConnector($pdo, DatabaseType::MySql);
+    $database = new Database($connector);
+    ```
+
 
 ## Mappable & DatabaseRegistry
 
@@ -90,16 +104,55 @@ echo $myObject1->id; # Outputs 1
 
 ## API 
 
-Une route est représentée par une classe qui implémente `RouteInterface`. 
+Une route est représentée par une classe qui implémente `RouteInterface`.
 
 ```php
-class MyRoute implements \Tivins\Webapp\RouteInterface
-```
+use \Tivins\Webapp\RouteInterface;
+use \Tivins\Webapp\HTTPResponse;
+use \Tivins\Webapp\Request;
+use \Tivins\Webapp\HTTPResponse;
+use \Tivins\Webapp\ContentType;
 
+class MyRoute implements RouteInterface {
+    public function trigger(Request $request,array $matches) : HTTPResponse{
+        return new HTTPResponse(200, ['hello' => 'world'], contentType: ContentType::JSON);
+    }
+}
+```
+Configure routes :
 ```php
 $api = new \Tivins\Webapp\API();
 $api->setRoutes([
-
+    new \Tivins\Webapp\RouteMenu('/users', MyRoute::class, \Tivins\Webapp\HTTPMethod::GET),
+    // ...
 ]);
-$api->trigger(\Tivins\Webapp\Request::fromHTTP());
+
+# Or using fluent style
+
+$api->get('/users', MyRoute::class)
+    ->post('/sign-in', MySignInRoute::class);
+```
+Trigger the API
+
+* From HTTP 
+    ```php
+    $api->trigger(\Tivins\Webapp\Request::fromHTTP());
+    ```
+
+* From a hand-crafted Request:
+    ```php
+    $request = new Request(
+        method:         HTTPMethod::POST, 
+        path:           '/api/users', 
+        body:           ['name' => 'John', 'email' => 'john@example.com'], 
+        bearerToken:    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...', 
+        accept:         ContentType::JSON 
+    );
+    $api->trigger($request);
+    ```
+
+Trigger and get contents :
+
+```php
+$response = $api->execute($request);
 ```
