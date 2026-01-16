@@ -1,9 +1,9 @@
 {
   "name": "tivins/webback",
+  "description": "Backend for PHP applications",
   "minimum-stability": "dev",
   "type": "library",
   "license": "MIT",
-  "version": "1.0.0",
   "authors": [
     {
       "name": "Tivins",
@@ -32,8 +32,5 @@
   "scripts": {
     "test": "phpunit",
     "test:debug": "phpunit --debug"
-  },
-  "_comment": [
-    "test:coverage\": \"phpunit --coverage-html coverage"
-  ]
+  }
 }
