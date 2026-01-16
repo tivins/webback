@@ -16,6 +16,22 @@ class MySQLTest extends TestCase
     private Database $database;
     private static bool $envLoaded = false;
 
+
+    private function loadEnv(): array
+    {
+        if (!self::$envLoaded && file_exists(__DIR__ . '/../.env')) {
+            $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+            $dotenv->load();
+            self::$envLoaded = true;
+        }
+        return [
+            'host' => getenv('MYSQL_TEST_HOST') ?: $_ENV['MYSQL_TEST_HOST'] ?? '127.0.0.1',
+            'port' => (int)(getenv('MYSQL_TEST_PORT') ?: $_ENV['MYSQL_TEST_PORT'] ?? 3306),
+            'user' => getenv('MYSQL_TEST_USER') ?: $_ENV['MYSQL_TEST_USER'] ?? 'root',
+            'pass' => getenv('MYSQL_TEST_PASSWORD') ?: $_ENV['MYSQL_TEST_PASSWORD'] ?? '',
+        ];
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -30,14 +46,11 @@ class MySQLTest extends TestCase
         // Generate a unique database name
         $this->dbName = 'test_' . uniqid(true) . '_' . time();
 
+        $env = $this->loadEnv();
         // Connect to MySQL without a database to create the test database
-        $pdo = new PDO(
-            "mysql:host=" . ($_ENV['MYSQL_TEST_HOST'] ?? 'localhost') . ";port=" . ($_ENV['MYSQL_TEST_PORT'] ?? 3306),
-            $_ENV['MYSQL_TEST_USER'] ?? 'root',
-            $_ENV['MYSQL_TEST_PASSWORD'] ?? ''
-        );
+        $pdo = new PDO("mysql:host={$env['host']};port={$env['port']}", $env['user'], $env['pass']);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $pdo->exec("CREATE DATABASE `{$this->dbName}`");
+        $pdo->exec("CREATE DATABASE `$this->dbName`");
 
         // Now connect to the test database
         $this->database = new Database($this->getConnector());
@@ -45,12 +58,13 @@ class MySQLTest extends TestCase
 
     private function getConnector(): MySQLConnector
     {
+        $env = $this->loadEnv();
         return new MySQLConnector(
             dbName: $this->dbName,
-            user: $_ENV['MYSQL_TEST_USER'] ?? 'root',
-            pass: $_ENV['MYSQL_TEST_PASSWORD'] ?? '',
-            host: $_ENV['MYSQL_TEST_HOST'] ?? 'localhost',
-            port: (int)($_ENV['MYSQL_TEST_PORT'] ?? 3306)
+            user: $env['user'],
+            pass: $env['pass'],
+            host: $env['host'],
+            port: $env['port']
         );
     }
 
@@ -155,7 +169,7 @@ class MySQLTest extends TestCase
         try {
             $pdo = $this->getConnector()->connect()->getInstance();
             $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-            $pdo->exec("DROP DATABASE IF EXISTS `{$this->dbName}`");
+            $pdo->exec("DROP DATABASE IF EXISTS `$this->dbName`");
         } catch (Exception) {
             // Ignore errors during cleanup
         }
