@@ -124,10 +124,11 @@ class MyRoute implements RouteInterface {
 }
 ```
 Configure routes :
+
 ```php
 $api = new \Tivins\Webapp\API();
 $api->setRoutes([
-    new \Tivins\Webapp\RouteMenu('/users', MyRoute::class, \Tivins\Webapp\HTTPMethod::GET),
+    new \Tivins\Webapp\RouteConfig('/users', MyRoute::class, \Tivins\Webapp\HTTPMethod::GET),
     // ...
 ]);
 

@@ -155,7 +155,7 @@ abstract class DatabaseRegistry
     protected function toArray(Mappable $entity, bool $excludePrimaryKey = false): array
     {
         $data = [];
-        $reflection = Mappable::reflexion($this->class);
+        $reflection = Mappable::reflection($this->class);
         foreach ($reflection as $field => $type) {
             if ($excludePrimaryKey && $field === $this->primaryKey) continue;
             $value = $entity->$field;

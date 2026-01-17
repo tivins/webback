@@ -32,26 +32,26 @@ class Mappable implements JsonSerializable
      *     public DateTime $created_at;
      * }
      *
-     * $reflection = Mappable::reflexion(User::class);
+     * $reflection = Mappable::reflection(User::class);
      * // Retourne: ['id' => 'int', 'name' => 'string', 'created_at' => 'DateTime']
      * ```
      */
-    public static function reflexion(string $class): array
+    public static function reflection(string $class): array
     {
-        static $reflexion;
-        if (!isset($reflexion) || !isset($reflexion[$class])) {
+        static $reflection;
+        if (!isset($reflection) || !isset($reflection[$class])) {
             try {
                 $refClass = new ReflectionClass($class);
                 $properties = $refClass->getProperties();
                 foreach ($properties as $property) {
-                    $reflexion[$class][$property->getName()] = $property->getType()->getName();
+                    $reflection[$class][$property->getName()] = $property->getType()->getName();
                 }
-                // var_dump("REFLEXION ANALYSIS = ", $reflexion);
+                // var_dump("REFLECTION ANALYSIS = ", $reflection);
             } catch (ReflectionException) {
                 // TODO Log error
             }
         }
-        return $reflexion[$class] ?? [];
+        return $reflection[$class] ?? [];
     }
 
     /**
@@ -61,9 +61,9 @@ class Mappable implements JsonSerializable
      */
     public function map(object|array $object): static
     {
-        $reflexion = static::reflexion(static::class);
+        $reflection = static::reflection(static::class);
         foreach ($object as $field => $value) {
-            $fieldType = $reflexion[$field] ?? null;
+            $fieldType = $reflection[$field] ?? null;
             if (!$fieldType) {
                 continue;
             }
@@ -98,12 +98,12 @@ class Mappable implements JsonSerializable
      * ```
      */
     #[ReturnTypeWillChange]
-    public function jsonSerialize()
+    public function jsonSerialize(): array
     {
-        $reflexion = static::reflexion(static::class);
+        $reflection = static::reflection(static::class);
         $data = get_object_vars($this);
         foreach ($data as $field => $value) {
-            $fieldType = $reflexion[$field] ?? null;
+            $fieldType = $reflection[$field] ?? null;
             if (!$fieldType) {
                 continue;
             }
@@ -141,8 +141,8 @@ class Mappable implements JsonSerializable
      * ```
      */
     public function validate(): void {
-        $reflexion = static::reflexion(static::class);
-        foreach ($reflexion as $field => $value) {
+        $reflection = static::reflection(static::class);
+        foreach ($reflection as $field => $value) {
             $this->validateField($field, $this->$field);
         }
     }

@@ -8,7 +8,7 @@ namespace Tivins\Webapp;
  * Une condition est composée d'une clé (nom de colonne), d'une valeur
  * et d'un opérateur de comparaison.
  */
-readonly class Cond {
+readonly class SQLCondition {
     /**
      * Crée une nouvelle condition SQL.
      *
@@ -19,13 +19,13 @@ readonly class Cond {
      * @example
      * ```php
      * // Condition simple
-     * $cond = new Cond('status', 'active', Operator::Equals);
+     * $cond = new SQLCondition('status', 'active', Operator::Equals);
      *
      * // Condition avec opérateur différent
-     * $cond = new Cond('age', 18, Operator::GreaterThanOrEqual);
+     * $cond = new SQLCondition('age', 18, Operator::GreaterThanOrEqual);
      *
      * // Condition de nullité
-     * $cond = new Cond('deleted_at', null, Operator::IsNull);
+     * $cond = new SQLCondition('deleted_at', null, Operator::IsNull);
      * ```
      */
     public function __construct(

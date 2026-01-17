@@ -182,8 +182,8 @@ class Database
      * @example
      * ```php
      * $conditions = new Conditions(
-     *     new Cond('status', 'inactive', Operator::Equals),
-     *     new Cond('created_at', '2020-01-01', Operator::LessThan)
+     *     new SQLCondition('status', 'inactive', Operator::Equals),
+     *     new SQLCondition('created_at', '2020-01-01', Operator::LessThan)
      * );
      * $rows = $database->deleteByConditions('users', $conditions, 'AND');
      * ```
@@ -243,8 +243,8 @@ class Database
      * @example
      * ```php
      * $conditions = new Conditions(
-     *     new Cond('status', 'active', Operator::Equals),
-     *     new Cond('age', 18, Operator::GreaterThanOrEqual)
+     *     new SQLCondition('status', 'active', Operator::Equals),
+     *     new SQLCondition('age', 18, Operator::GreaterThanOrEqual)
      * );
      * $stmt = $database->loadByConditions('users', $conditions, 'AND');
      * $users = $stmt->fetchAll();
@@ -260,7 +260,7 @@ class Database
     private function buildConditions(Conditions $keysValues, string $cond = 'AND'): string
     {
         return implode(" $cond ",
-            array_map(fn(Cond $key) => "`$key->key` {$key->operator->value} ?", $keysValues->conditions)
+            array_map(fn(SQLCondition $key) => "`$key->key` {$key->operator->value} ?", $keysValues->conditions)
         );
     }
 }

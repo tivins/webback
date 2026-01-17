@@ -5,7 +5,7 @@ namespace Tivins\WebappTests;
 use DateTime;
 use Exception;
 use PHPUnit\Framework\TestCase;
-use Tivins\Webapp\Cond;
+use Tivins\Webapp\SQLCondition;
 use Tivins\Webapp\Conditions;
 use Tivins\Webapp\Database;
 use Tivins\Webapp\DatabaseRegistry;
@@ -105,7 +105,7 @@ class MappableTest extends TestCase
         self::assertEquals([$obj], $registry->findAll());
         self::assertEquals($obj, $registry->find(1));
         self::assertEquals([$obj], $registry->findAllBy('title', 'test'));
-        self::assertEquals([$obj], $registry->findByConditions(new Conditions(new Cond('title', 'test')), 'AND'));
+        self::assertEquals([$obj], $registry->findByConditions(new Conditions(new SQLCondition('title', 'test')), 'AND'));
 
         // JSON Serialize
         self::assertEquals(json_encode([
@@ -124,7 +124,7 @@ class MappableTest extends TestCase
         $registry->save($obj);
         self::assertEquals([$obj], $registry->findAll());
 
-        $registry->deleteByConditions(new Conditions(new Cond('title', 'test')), 'AND');
+        $registry->deleteByConditions(new Conditions(new SQLCondition('title', 'test')), 'AND');
         self::assertEquals([], $registry->findAll());
 
     }

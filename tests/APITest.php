@@ -12,7 +12,7 @@ use Tivins\Webapp\Message;
 use Tivins\Webapp\MessageType;
 use Tivins\Webapp\Request;
 use Tivins\Webapp\RouteInterface;
-use Tivins\Webapp\RouteMenu;
+use Tivins\Webapp\RouteConfig;
 
 /**
  * Mock route pour les tests
@@ -51,9 +51,9 @@ class APITest extends TestCase
     {
         $api = new API();
         $routes = [
-            new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
-            new RouteMenu('/users/(\d+)', MockRoute::class, HTTPMethod::GET),
-            new RouteMenu('/users', MockRoute::class, HTTPMethod::POST),
+            new RouteConfig('/users', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users/(\d+)', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users', MockRoute::class, HTTPMethod::POST),
         ];
 
         $result = $api->setRoutes($routes);
@@ -74,7 +74,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         $request = new Request(method: HTTPMethod::GET, path: '/unknown');
@@ -91,7 +91,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         // Route existe pour GET mais pas pour POST
@@ -105,7 +105,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         $request = new Request(method: HTTPMethod::GET, path: '/users');
@@ -119,7 +119,7 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            new RouteMenu('/users/(\d+)', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users/(\d+)', MockRoute::class, HTTPMethod::GET),
         ]);
 
         $request = new Request(method: HTTPMethod::GET, path: '/users/123');
@@ -135,7 +135,7 @@ class APITest extends TestCase
     {
         $api = new API('/api/v1');
         $api->setRoutes([
-            new RouteMenu('/users', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users', MockRoute::class, HTTPMethod::GET),
         ]);
 
         // Sans le basePath, la route ne devrait pas matcher
@@ -153,10 +153,10 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            new RouteMenu('/items', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/items', MockRoute::class, HTTPMethod::GET),
         ]);
         $api->setRoutes([
-            new RouteMenu('/items', MockRoute::class, HTTPMethod::POST),
+            new RouteConfig('/items', MockRoute::class, HTTPMethod::POST),
         ]);
 
         // Test GET
@@ -174,8 +174,8 @@ class APITest extends TestCase
     {
         $api = new API();
         $api->setRoutes([
-            new RouteMenu('/users/.*', MockRoute::class, HTTPMethod::GET),
-            new RouteMenu('/users/special', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users/.*', MockRoute::class, HTTPMethod::GET),
+            new RouteConfig('/users/special', MockRoute::class, HTTPMethod::GET),
         ]);
 
         // La première route qui matche devrait être utilisée

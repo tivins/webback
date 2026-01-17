@@ -14,19 +14,19 @@ readonly class Conditions {
     /**
      * Crée un ensemble de conditions SQL.
      *
-     * @param Cond ...$databaseConditions Les conditions à combiner
+     * @param SQLCondition ...$databaseConditions Les conditions à combiner
      *
      * @example
      * ```php
      * $conditions = new Conditions(
-     *     new Cond('status', 'active', Operator::Equals),
-     *     new Cond('age', 18, Operator::GreaterThanOrEqual),
-     *     new Cond('email', null, Operator::IsNotNull)
+     *     new SQLCondition('status', 'active', Operator::Equals),
+     *     new SQLCondition('age', 18, Operator::GreaterThanOrEqual),
+     *     new SQLCondition('email', null, Operator::IsNotNull)
      * );
      * ```
      */
     public function __construct(
-        Cond ...$databaseConditions
+        SQLCondition ...$databaseConditions
     ) {
         $this->conditions = $databaseConditions;
     }
@@ -41,8 +41,8 @@ readonly class Conditions {
      * @example
      * ```php
      * $conditions = new Conditions(
-     *     new Cond('name', 'John', Operator::Equals),
-     *     new Cond('age', 25, Operator::Equals)
+     *     new SQLCondition('name', 'John', Operator::Equals),
+     *     new SQLCondition('age', 25, Operator::Equals)
      * );
      * $values = $conditions->getValues();
      * // Retourne: ['John', 25]

@@ -23,15 +23,15 @@ class API
     /**
      * Définit les routes de l'API.
      *
-     * @param array<string, RouteMenu> $routes Tableau associatif où les clés sont des expressions régulières
-     *                                         et les valeurs sont des objets RouteMenu
+     * @param array<string, RouteConfig> $routes Tableau associatif où les clés sont des expressions régulières
+     *                                         et les valeurs sont des objets RouteConfig
      * @return static Instance courante pour le chaînage de méthodes
      *
      * @example
      * ```php
      * $api->setRoutes([
-     *     '/users/(\d+)' => new RouteMenu(UserController::class, HTTPMethod::GET),
-     *     '/users' => new RouteMenu(UsersController::class, HTTPMethod::POST),
+     *     '/users/(\d+)' => new RouteConfig(UserController::class, HTTPMethod::GET),
+     *     '/users' => new RouteConfig(UsersController::class, HTTPMethod::POST),
      * ]);
      * ```
      */
