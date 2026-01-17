@@ -21,6 +21,11 @@ abstract class DatabaseRegistry
     {
     }
 
+    public function getDatabase(): Database
+    {
+        return $this->database;
+    }
+
     // ═══════════════════════════════════════════════════════════
     // READ OPERATIONS
     // ═══════════════════════════════════════════════════════════
@@ -174,5 +179,5 @@ abstract class DatabaseRegistry
     /**
      * Crée la table en base de données (migration)
      */
-    abstract public function createTable(Database $database): void;
+    abstract public function createTable(Database $database = null): void;
 }
