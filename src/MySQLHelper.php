@@ -55,6 +55,33 @@ class MySQLHelper implements SQLHelper
         return "$name DATETIME" . ($notNull ? " NOT NULL" : "") . ($default ? " DEFAULT $default" : "");
     }
 
+    public function getUniqueKey(array $columns, ?string $name = null): string
+    {
+        $cols = implode(',', $columns);
+        if ($name !== null) {
+            return "CONSTRAINT $name UNIQUE ($cols)";
+        }
+        return "UNIQUE ($cols)";
+    }
+
+    public function getIndex(array $columns, ?string $name = null): string
+    {
+        $cols = implode(',', $columns);
+        if ($name !== null) {
+            return "INDEX $name ($cols)";
+        }
+        // Génère un nom d'index par défaut si non fourni
+        $indexName = 'idx_' . implode('_', $columns);
+        return "INDEX $indexName ($cols)";
+    }
+
+    public function createIndex(string $tableName, array $columns, ?string $name = null): string
+    {
+        $cols = implode(',', $columns);
+        $indexName = $name ?? 'idx_' . implode('_', $columns);
+        return "CREATE INDEX IF NOT EXISTS $indexName ON $tableName ($cols)";
+    }
+
     public function createTable(string $tableName, string ...$decl): string
     {
         return "CREATE TABLE IF NOT EXISTS $tableName (" . implode(',', $decl) . ")";

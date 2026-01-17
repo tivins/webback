@@ -112,6 +112,33 @@ class MySQLTest extends TestCase
         $datetime = $helper->getDateTime('created_at', true, MySQLHelper::CurrentTimestamp);
         self::assertStringContainsString('DATETIME', $datetime);
         self::assertStringContainsString('NOT NULL', $datetime);
+
+        // Test getUniqueKey
+        $uniqueKey = $helper->getUniqueKey(['title', 'author']);
+        self::assertStringContainsString('UNIQUE', $uniqueKey);
+        self::assertStringContainsString('title', $uniqueKey);
+        self::assertStringContainsString('author', $uniqueKey);
+
+        $uniqueKeyNamed = $helper->getUniqueKey(['title', 'author'], 'unique_title_author');
+        self::assertStringContainsString('CONSTRAINT', $uniqueKeyNamed);
+        self::assertStringContainsString('unique_title_author', $uniqueKeyNamed);
+        self::assertStringContainsString('UNIQUE', $uniqueKeyNamed);
+
+        // Test getIndex
+        $index = $helper->getIndex(['title', 'author']);
+        self::assertStringContainsString('INDEX', $index);
+        self::assertStringContainsString('title', $index);
+        self::assertStringContainsString('author', $index);
+
+        $indexNamed = $helper->getIndex(['title', 'author'], 'idx_title_author');
+        self::assertStringContainsString('INDEX', $indexNamed);
+        self::assertStringContainsString('idx_title_author', $indexNamed);
+
+        // Test createIndex
+        $createIndex = $helper->createIndex('books', ['isbn'], 'idx_isbn');
+        self::assertStringContainsString('CREATE INDEX', $createIndex);
+        self::assertStringContainsString('idx_isbn', $createIndex);
+        self::assertStringContainsString('ON books', $createIndex);
     }
 
     public function testCreateTableAndOperations(): void
@@ -156,6 +183,64 @@ class MySQLTest extends TestCase
         $this->database->delete('test_table', 'id', 1);
         $result = $this->database->loadBy('test_table', 'id', 1);
         self::assertEquals(0, $result->rowCount());
+    }
+
+    public function testUniqueKeyAndIndex(): void
+    {
+        $helper = $this->database->getHelper();
+
+        // Create a table with unique key on multiple columns
+        $createTable = $helper->createTable(
+            'books',
+            $helper->getAutoincrement('id'),
+            $helper->getText('title', 255, false, true),
+            $helper->getText('author', 255, false, true),
+            $helper->getText('isbn', 13, false, false),
+            $helper->getUniqueKey(['title', 'author'], 'unique_title_author'),
+            $helper->getIndex(['isbn'], 'idx_isbn')
+        );
+
+        $this->database->execute($createTable);
+
+        // Verify table exists
+        $result = $this->database->execute("SHOW TABLES LIKE 'books'");
+        self::assertEquals(1, $result->rowCount());
+
+        // Insert first book
+        $id1 = $this->database->insert('books', [
+            'title' => 'Test Book',
+            'author' => 'Test Author',
+            'isbn' => '1234567890123'
+        ]);
+        self::assertEquals(1, $id1);
+
+        // Try to insert duplicate (title + author) - should fail
+        $duplicateInserted = false;
+        try {
+            $this->database->insert('books', [
+                'title' => 'Test Book',
+                'author' => 'Test Author',
+                'isbn' => '9876543210987'
+            ]);
+            $duplicateInserted = true;
+        } catch (Exception $e) {
+            // Expected: unique constraint violation
+            self::assertStringContainsString('Duplicate', $e->getMessage());
+        }
+        self::assertFalse($duplicateInserted, 'Duplicate insert should have failed');
+
+        // Insert different title/author combination - should succeed
+        $id2 = $this->database->insert('books', [
+            'title' => 'Test Book 2',
+            'author' => 'Test Author',
+            'isbn' => '1111111111111'
+        ]);
+        // L'ID peut être 2 ou 3 selon si l'insertion dupliquée a consommé un ID auto-incrémenté
+        self::assertGreaterThanOrEqual(2, $id2);
+
+        // Verify indexes exist
+        $indexes = $this->database->execute("SHOW INDEX FROM books WHERE Key_name = 'idx_isbn'");
+        self::assertGreaterThan(0, $indexes->rowCount());
     }
 
     protected function tearDown(): void

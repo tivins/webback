@@ -139,10 +139,71 @@ interface SQLHelper
     public function getDateTime(string $name, bool $notNull = false, string $default = ''): string;
 
     /**
+     * Génère une déclaration de contrainte UNIQUE sur plusieurs colonnes.
+     *
+     * @param array $columns Les noms des colonnes (ex: ['title', 'author'])
+     * @param string|null $name Le nom optionnel de la contrainte
+     * @return string La déclaration SQL (ex: "UNIQUE (title, author)" ou "CONSTRAINT name UNIQUE (title, author)")
+     *
+     * @example
+     * ```php
+     * $helper->getUniqueKey(['title', 'author']);
+     * // Retourne: "UNIQUE (title, author)"
+     *
+     * $helper->getUniqueKey(['title', 'author'], 'unique_title_author');
+     * // Retourne: "CONSTRAINT unique_title_author UNIQUE (title, author)" (MySQL)
+     * // ou "UNIQUE (title, author)" (SQLite)
+     * ```
+     */
+    public function getUniqueKey(array $columns, ?string $name = null): string;
+
+    /**
+     * Génère une déclaration d'index sur plusieurs colonnes.
+     *
+     * Pour MySQL, cette méthode retourne une déclaration qui peut être utilisée dans CREATE TABLE.
+     * Pour SQLite, cette méthode retourne une instruction CREATE INDEX complète (car SQLite ne supporte pas INDEX dans CREATE TABLE).
+     *
+     * @param array $columns Les noms des colonnes (ex: ['title', 'author'])
+     * @param string|null $name Le nom optionnel de l'index
+     * @return string La déclaration SQL (ex: "INDEX idx_name (title, author)" pour MySQL dans CREATE TABLE, ou "CREATE INDEX idx_name ON table (title, author)" pour SQLite)
+     *
+     * @example
+     * ```php
+     * // MySQL - peut être utilisé dans createTable
+     * $helper->getIndex(['title', 'author']);
+     * // Retourne: "INDEX idx_title_author (title, author)"
+     *
+     * // SQLite - doit être exécuté séparément après createTable
+     * $helper->getIndex(['title', 'author'], 'idx_title_author');
+     * // Retourne: "CREATE INDEX IF NOT EXISTS idx_title_author ON table_name (title, author)"
+     * ```
+     */
+    public function getIndex(array $columns, ?string $name = null): string;
+
+    /**
+     * Génère une instruction CREATE INDEX complète pour créer un index séparément.
+     *
+     * Cette méthode est utile pour SQLite (qui ne supporte pas INDEX dans CREATE TABLE)
+     * mais peut aussi être utilisée pour MySQL si on préfère créer l'index après la table.
+     *
+     * @param string $tableName Le nom de la table
+     * @param array $columns Les noms des colonnes (ex: ['title', 'author'])
+     * @param string|null $name Le nom optionnel de l'index
+     * @return string L'instruction SQL CREATE INDEX
+     *
+     * @example
+     * ```php
+     * $helper->createIndex('books', ['title', 'author'], 'idx_title_author');
+     * // Retourne: "CREATE INDEX IF NOT EXISTS idx_title_author ON books (title, author)"
+     * ```
+     */
+    public function createIndex(string $tableName, array $columns, ?string $name = null): string;
+
+    /**
      * Génère une instruction CREATE TABLE.
      *
      * @param string $tableName Le nom de la table
-     * @param string ...$decl Les déclarations de colonnes
+     * @param string ...$decl Les déclarations de colonnes et contraintes
      * @return string L'instruction SQL CREATE TABLE
      *
      * @example
@@ -153,6 +214,14 @@ interface SQLHelper
      *     $helper->getText('email', 255, true, true)
      * );
      * // Retourne: "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL)"
+     *
+     * $sql = $helper->createTable('books',
+     *     $helper->getAutoincrement('id'),
+     *     $helper->getText('title', 255, false, true),
+     *     $helper->getText('author', 255, false, true),
+     *     $helper->getUniqueKey(['title', 'author'])
+     * );
+     * // Retourne: "CREATE TABLE IF NOT EXISTS books (id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, author VARCHAR(255) NOT NULL, UNIQUE (title, author))"
      * ```
      */
     public function createTable(string $tableName, string ...$decl): string;

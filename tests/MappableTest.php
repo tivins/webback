@@ -43,7 +43,7 @@ class MappableTestMockRegistry extends DatabaseRegistry
     protected string $tableName = 'MappableTestMock';
     protected string $primaryKey = 'id';
 
-    public function createTable(Database $database): void
+    public function createTable(Database $database = null): void
     {
         $helper = $database->getHelper();
         $database->execute(

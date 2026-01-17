@@ -5,6 +5,18 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.8.0] - 2026-01-17
+
+### Added
+- Ajout des méthodes `getUniqueKey()` et `getIndex()` dans l'interface `SQLHelper` pour gérer les clés uniques et les index sur plusieurs colonnes
+- Ajout de la méthode `createIndex()` dans l'interface `SQLHelper` pour créer des index séparément (nécessaire pour SQLite)
+- Implémentation des méthodes de gestion des clés dans `SQLiteHelper` et `MySQLHelper`
+- Support des clés multiples (ex: unique sur "title" et "author")
+- Ajout de tests unitaires pour valider les nouvelles fonctionnalités de gestion des clés et index
+
+### Changed
+- `getIndex()` pour SQLite retourne maintenant une exception car SQLite ne supporte pas INDEX dans CREATE TABLE (utiliser `createIndex()` à la place)
+
 ## [0.7.0] - 2026-01-17 ([`0ef531a`][0.7.0])
 
 ### Changed

@@ -15,7 +15,7 @@ class TestRegistry extends DatabaseRegistry
     protected string $tableName = 'TestMappable';
     protected string $primaryKey = 'id';
 
-    public function createTable(Database $database): void
+    public function createTable(Database $database = null): void
     {
         $helper = $database->getHelper();
         $database->execute(

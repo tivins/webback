@@ -55,6 +55,32 @@ class SQLiteHelper implements SQLHelper
         return "$name DATETIME" . ($notNull ? " NOT NULL" : "") . ($default ? " DEFAULT $default" : "");
     }
 
+    public function getUniqueKey(array $columns, ?string $name = null): string
+    {
+        $cols = implode(',', $columns);
+        // SQLite ne supporte pas les noms de contrainte dans CREATE TABLE
+        return "UNIQUE ($cols)";
+    }
+
+    public function getIndex(array $columns, ?string $name = null): string
+    {
+        // SQLite ne supporte pas INDEX dans CREATE TABLE
+        // Cette méthode retourne une instruction CREATE INDEX complète
+        // qui doit être exécutée séparément après la création de la table
+        $cols = implode(',', $columns);
+        $indexName = $name ?? 'idx_' . implode('_', $columns);
+        // Note: cette méthode nécessite le nom de la table, mais l'interface ne le fournit pas
+        // Pour SQLite, utilisez createIndex() à la place
+        throw new \RuntimeException('SQLite does not support INDEX in CREATE TABLE. Use createIndex() instead.');
+    }
+
+    public function createIndex(string $tableName, array $columns, ?string $name = null): string
+    {
+        $cols = implode(',', $columns);
+        $indexName = $name ?? 'idx_' . implode('_', $columns);
+        return "CREATE INDEX IF NOT EXISTS $indexName ON $tableName ($cols)";
+    }
+
     public function createTable(string $tableName, string ...$decl): string
     {
         return "CREATE TABLE IF NOT EXISTS $tableName (" . implode(',', $decl) . ")";
