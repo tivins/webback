@@ -5,6 +5,24 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.9.0] - 2026-01-18
+
+### Added
+- Ajout de la génération automatique de spécifications OpenAPI 3.0.3 depuis les routes enregistrées
+- Nouvelle méthode `generateOpenAPISpec()` dans la classe `API` pour générer la documentation OpenAPI
+- Création de classes spécialisées pour la génération OpenAPI :
+  - `OpenAPIGenerator` : orchestrateur principal de la génération
+  - `OpenAPIPathConverter` : conversion des patterns regex en chemins OpenAPI avec paramètres
+  - `ControllerMetadataExtractor` : extraction des métadonnées depuis les contrôleurs (PHPDoc)
+  - `OpenAPIOperationBuilder` : construction des opérations OpenAPI
+- Support de la conversion automatique des paramètres regex (ex: `(\d+)` → `{id}` avec type `integer`)
+- Génération automatique des `operationId`, `requestBody` pour POST/PUT/PATCH, et réponses par défaut
+- Ajout de tests unitaires complets pour toutes les nouvelles classes
+
+### Changed
+- Refactorisation de la classe `API` pour séparer les responsabilités (principe SRP)
+- La génération OpenAPI est maintenant modulaire et extensible
+
 ## [0.8.0] - 2026-01-17
 
 ### Added

@@ -118,6 +118,40 @@ class API
         $this->execute($request)->output();
     }
 
+    /**
+     * Génère une spécification OpenAPI 3.0.3 à partir des routes enregistrées.
+     *
+     * @param array $options Options de génération :
+     *   - 'title' (string): Titre de l'API (défaut: "API Documentation")
+     *   - 'version' (string): Version de l'API (défaut: "1.0.0")
+     *   - 'description' (string): Description de l'API
+     *   - 'servers' (array): Liste des serveurs (ex: [['url' => 'https://api.example.com']])
+     *   - 'includeControllerDocs' (bool): Inclure les PHPDoc des contrôleurs (défaut: true)
+     *
+     * @return array La spécification OpenAPI au format tableau PHP
+     *
+     * @example
+     * ```php
+     * $api = new API('/api/v1');
+     * $api->get('/users/(\d+)', UserController::class);
+     * $spec = $api->generateOpenAPISpec([
+     *     'title' => 'My API',
+     *     'servers' => [['url' => 'https://api.example.com']]
+     * ]);
+     * file_put_contents('openapi.json', json_encode($spec, JSON_PRETTY_PRINT));
+     * ```
+     */
+    public function generateOpenAPISpec(array $options = []): array
+    {
+        $generator = new OpenAPIGenerator(
+            new OpenAPIPathConverter(),
+            new ControllerMetadataExtractor(),
+            new OpenAPIOperationBuilder()
+        );
+
+        return $generator->generate($this->routesByMethod, $options);
+    }
+
     // --- private ---
 
     private array $routesByMethod = [];
