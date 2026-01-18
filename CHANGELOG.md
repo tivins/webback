@@ -5,6 +5,19 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.12.0] - 2026-01-18
+
+### Added
+- Support de `RouteAttribute` sur les classes en plus des méthodes
+- Fusion automatique des métadonnées : les valeurs de la classe sont utilisées par défaut, surchargées par les valeurs de la méthode
+- Les tags de la classe et de la méthode sont fusionnés (union des tableaux)
+- Utile pour tagger une classe entière tout en définissant les méthodes individuellement
+
+### Changed
+- `RouteAttribute` peut maintenant être appliqué sur les classes (`Attribute::TARGET_CLASS`)
+- `ControllerMetadataExtractor` extrait et fusionne les attributs de la classe et de la méthode
+- Les valeurs de la méthode ont priorité sur celles de la classe (sauf pour les tags qui sont fusionnés)
+
 ## [0.11.0] - 2026-01-18
 
 ### Added

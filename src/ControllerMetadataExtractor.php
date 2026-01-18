@@ -59,6 +59,10 @@ class ControllerMetadataExtractor
     /**
      * Extrait les métadonnées depuis un attribut RouteAttribute.
      *
+     * Extrait d'abord les attributs de la classe, puis ceux de la méthode.
+     * Les valeurs de la méthode surchargent celles de la classe.
+     * Les tags sont fusionnés (tags de la méthode ajoutés à ceux de la classe).
+     *
      * @param string|\Closure|array $handler Le handler
      * @return array|null Les métadonnées ou null si aucun attribut trouvé
      */
@@ -69,27 +73,62 @@ class ControllerMetadataExtractor
             return null;
         }
 
-        $attributes = $reflectionMethod->getAttributes(
+        // 1. Extraire les attributs de la classe
+        $classAttributes = [];
+        $reflectionClass = $reflectionMethod->getDeclaringClass();
+        $classRouteAttributes = $reflectionClass->getAttributes(
             RouteAttribute::class,
             ReflectionAttribute::IS_INSTANCEOF
         );
+        if (!empty($classRouteAttributes)) {
+            /** @var RouteAttribute $classAttribute */
+            $classAttribute = $classRouteAttributes[0]->newInstance();
+            $classAttributes = [
+                'summary' => $classAttribute->name,
+                'description' => $classAttribute->description,
+                'contentType' => $classAttribute->contentType,
+                'tags' => $classAttribute->tags,
+                'deprecated' => $classAttribute->deprecated,
+                'operationId' => $classAttribute->operationId,
+            ];
+        }
 
-        if (empty($attributes)) {
+        // 2. Extraire les attributs de la méthode
+        $methodAttributes = [];
+        $methodRouteAttributes = $reflectionMethod->getAttributes(
+            RouteAttribute::class,
+            ReflectionAttribute::IS_INSTANCEOF
+        );
+        if (!empty($methodRouteAttributes)) {
+            /** @var RouteAttribute $methodAttribute */
+            $methodAttribute = $methodRouteAttributes[0]->newInstance();
+            $methodAttributes = [
+                'summary' => $methodAttribute->name,
+                'description' => $methodAttribute->description,
+                'contentType' => $methodAttribute->contentType,
+                'tags' => $methodAttribute->tags,
+                'deprecated' => $methodAttribute->deprecated,
+                'operationId' => $methodAttribute->operationId,
+            ];
+        }
+
+        // Si aucun attribut trouvé (ni classe ni méthode), retourner null
+        if (empty($classAttributes) && empty($methodAttributes)) {
             return null;
         }
 
-        /** @var RouteAttribute $routeAttribute */
-        $routeAttribute = $attributes[0]->newInstance();
-
-        return [
-            'summary' => $routeAttribute->name,
-            'description' => $routeAttribute->description,
+        // 3. Fusionner : valeurs de la classe par défaut, surchargées par celles de la méthode
+        $merged = [
+            'summary' => $methodAttributes['summary'] ?? $classAttributes['summary'] ?? '',
+            'description' => $methodAttributes['description'] ?? $classAttributes['description'] ?? '',
+            'contentType' => $methodAttributes['contentType'] ?? $classAttributes['contentType'] ?? ContentType::JSON,
+            'tags' => array_unique(array_merge($classAttributes['tags'] ?? [], $methodAttributes['tags'] ?? [])),
+            'deprecated' => $methodAttributes['deprecated'] ?? $classAttributes['deprecated'] ?? false,
+            'operationId' => $methodAttributes['operationId'] ?? $classAttributes['operationId'] ?? '',
             'responses' => [],
-            'contentType' => $routeAttribute->contentType,
-            'tags' => $routeAttribute->tags,
-            'deprecated' => $routeAttribute->deprecated,
-            'operationId' => $routeAttribute->operationId,
         ];
+
+        return $merged;
     }
 
     /**

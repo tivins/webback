@@ -311,6 +311,50 @@ class OpenAPIGeneratorTest extends TestCase
         self::assertEquals('From Attribute', $operation['summary']);
         self::assertEquals('Attribute description', $operation['description']);
     }
+
+    // === Tests pour RouteAttribute sur les classes ===
+
+    public function testRouteAttributeOnClass(): void
+    {
+        $api = new API();
+        $api->get('/class-tagged', [RouteAttributeClassTaggedHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/class-tagged']['get'];
+        // Le tag de la classe doit être présent
+        self::assertEquals(['Users'], $operation['tags']);
+    }
+
+    public function testRouteAttributeClassAndMethodMerge(): void
+    {
+        $api = new API();
+        $api->get('/merged', [RouteAttributeClassAndMethodHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/merged']['get'];
+        // Les tags de la classe et de la méthode doivent être fusionnés
+        self::assertEquals(['Users', 'Admin'], $operation['tags']);
+        // Le name de la méthode doit surcharger celui de la classe
+        self::assertEquals('Method name', $operation['summary']);
+        // La description de la méthode doit surcharger celle de la classe
+        self::assertEquals('Method description', $operation['description']);
+    }
+
+    public function testRouteAttributeClassOnly(): void
+    {
+        $api = new API();
+        $api->get('/class-only', [RouteAttributeClassOnlyHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/class-only']['get'];
+        // Les métadonnées de la classe doivent être utilisées
+        self::assertEquals(['Users'], $operation['tags']);
+        self::assertEquals('Class name', $operation['summary']);
+        self::assertEquals('Class description', $operation['description']);
+    }
 }
 
 /**
@@ -406,6 +450,55 @@ class RouteAttributeWithPhpDocHandler
         name: 'From Attribute',
         description: 'Attribute description'
     )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec RouteAttribute sur la classe uniquement.
+ */
+#[RouteAttribute(tags: ['Users'])]
+class RouteAttributeClassTaggedHandler
+{
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec RouteAttribute sur la classe ET la méthode - test de fusion.
+ */
+#[RouteAttribute(
+    name: 'Class name',
+    description: 'Class description',
+    tags: ['Users']
+)]
+class RouteAttributeClassAndMethodHandler
+{
+    #[RouteAttribute(
+        name: 'Method name',
+        description: 'Method description',
+        tags: ['Admin']
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec RouteAttribute uniquement sur la classe (pas de méthode).
+ */
+#[RouteAttribute(
+    name: 'Class name',
+    description: 'Class description',
+    tags: ['Users']
+)]
+class RouteAttributeClassOnlyHandler
+{
     public static function handle(Request $request, array $matches): HTTPResponse
     {
         return new HTTPResponse(200);

@@ -9,28 +9,34 @@ use Attribute;
 /**
  * Attribut PHP pour définir les métadonnées d'une route API.
  *
- * Cet attribut peut être appliqué sur la méthode `trigger()` d'un RouteInterface
- * ou sur toute méthode utilisée comme handler de route.
+ * Cet attribut peut être appliqué sur :
+ * - Une classe (pour définir des métadonnées par défaut pour toutes les méthodes)
+ * - La méthode `trigger()` d'un RouteInterface
+ * - Toute méthode utilisée comme handler de route
  *
  * Les métadonnées définies via cet attribut ont priorité sur les PHPDoc
  * lors de la génération de la documentation OpenAPI.
  *
+ * Lorsqu'un attribut est présent sur la classe et sur la méthode, les valeurs
+ * de la méthode surchargent celles de la classe (fusion des tableaux pour les tags).
+ *
  * @example
  * ```php
+ * #[RouteAttribute(tags: ['Users'])]
  * class UserController implements RouteInterface {
  *     #[RouteAttribute(
  *         name: 'Get user by ID',
  *         description: 'Retrieves a user by their unique identifier',
- *         tags: ['Users'],
  *         operationId: 'getUserById'
  *     )]
  *     public function trigger(Request $request, array $matches): HTTPResponse {
+ *         // Cette méthode héritera du tag 'Users' de la classe
  *         // ...
  *     }
  * }
  * ```
  */
-#[Attribute(Attribute::TARGET_METHOD)]
+#[Attribute(Attribute::TARGET_METHOD | Attribute::TARGET_CLASS)]
 class RouteAttribute
 {
     /**
