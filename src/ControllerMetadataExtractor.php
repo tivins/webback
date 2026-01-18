@@ -4,26 +4,130 @@ declare(strict_types=1);
 
 namespace Tivins\Webapp;
 
+use ReflectionAttribute;
+use ReflectionClass;
+use ReflectionException;
+use ReflectionFunction;
+use ReflectionMethod;
+
 /**
  * Extrait les métadonnées depuis les handlers de routes (classes, closures, callables).
+ *
+ * Cette classe supporte deux sources de métadonnées :
+ * 1. Les attributs PHP `#[RouteAttribute]` (prioritaires)
+ * 2. Les commentaires PHPDoc (fallback)
+ *
+ * Les attributs RouteAttribute sont recherchés sur :
+ * - La méthode `trigger()` pour les classes implémentant RouteInterface
+ * - La méthode spécifiée pour les callable arrays [Class::class, 'method']
+ * - Les closures ne supportent pas les attributs (PHPDoc utilisé)
  */
 class ControllerMetadataExtractor
 {
     /**
      * Extrait les métadonnées depuis un handler de route.
      *
+     * Priorité d'extraction :
+     * 1. Attribut RouteAttribute sur la méthode
+     * 2. PHPDoc de la méthode/classe/closure
+     *
      * @param string|\Closure|array $handler Le handler (nom de classe, closure, ou callable array)
-     * @return array{summary: string, description: string, responses: array}
+     * @return array{summary: string, description: string, responses: array, contentType: ?ContentType, tags: array, deprecated: bool, operationId: string}
      */
     public function extract(string|\Closure|array $handler): array
     {
+        // 1. Tenter d'extraire depuis RouteAttribute (prioritaire)
+        $attributeMetadata = $this->extractFromAttribute($handler);
+        if ($attributeMetadata !== null) {
+            return $attributeMetadata;
+        }
+
+        // 2. Fallback sur PHPDoc
         $docComment = $this->getDocComment($handler);
 
         return [
             'summary' => $this->extractSummaryFromDoc($docComment),
             'description' => $this->extractDescriptionFromDoc($docComment),
             'responses' => $this->extractResponsesFromDoc($docComment),
+            'contentType' => null,
+            'tags' => [],
+            'deprecated' => false,
+            'operationId' => '',
         ];
+    }
+
+    /**
+     * Extrait les métadonnées depuis un attribut RouteAttribute.
+     *
+     * @param string|\Closure|array $handler Le handler
+     * @return array|null Les métadonnées ou null si aucun attribut trouvé
+     */
+    private function extractFromAttribute(string|\Closure|array $handler): ?array
+    {
+        $reflectionMethod = $this->getReflectionMethod($handler);
+        if ($reflectionMethod === null) {
+            return null;
+        }
+
+        $attributes = $reflectionMethod->getAttributes(
+            RouteAttribute::class,
+            ReflectionAttribute::IS_INSTANCEOF
+        );
+
+        if (empty($attributes)) {
+            return null;
+        }
+
+        /** @var RouteAttribute $routeAttribute */
+        $routeAttribute = $attributes[0]->newInstance();
+
+        return [
+            'summary' => $routeAttribute->name,
+            'description' => $routeAttribute->description,
+            'responses' => [],
+            'contentType' => $routeAttribute->contentType,
+            'tags' => $routeAttribute->tags,
+            'deprecated' => $routeAttribute->deprecated,
+            'operationId' => $routeAttribute->operationId,
+        ];
+    }
+
+    /**
+     * Obtient la ReflectionMethod pour un handler.
+     *
+     * @param string|\Closure|array $handler Le handler
+     * @return ReflectionMethod|null La méthode de réflection ou null
+     */
+    private function getReflectionMethod(string|\Closure|array $handler): ?ReflectionMethod
+    {
+        // Cas 1: Nom de classe (string) - chercher la méthode trigger()
+        if (is_string($handler)) {
+            if (!class_exists($handler)) {
+                return null;
+            }
+            try {
+                return new ReflectionMethod($handler, 'trigger');
+            } catch (ReflectionException) {
+                return null;
+            }
+        }
+
+        // Cas 2: Closure - pas de support des attributs
+        if ($handler instanceof \Closure) {
+            return null;
+        }
+
+        // Cas 3: Callable array [Class::class, 'method'] ou [$object, 'method']
+        if (is_array($handler) && count($handler) === 2) {
+            [$classOrObject, $method] = $handler;
+            try {
+                return new ReflectionMethod($classOrObject, $method);
+            } catch (ReflectionException) {
+                return null;
+            }
+        }
+
+        return null;
     }
 
     /**

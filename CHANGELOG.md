@@ -5,6 +5,25 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.11.0] - 2026-01-18
+
+### Added
+- Nouvelle classe `RouteAttribute` : attribut PHP 8 pour définir les métadonnées des routes API
+- Support des propriétés OpenAPI via `RouteAttribute` :
+  - `name` : résumé/summary de l'opération
+  - `description` : description détaillée
+  - `contentType` : type de contenu de la réponse (JSON, HTML, XML, etc.)
+  - `tags` : tags pour grouper les opérations dans OpenAPI
+  - `deprecated` : marquer une opération comme dépréciée
+  - `operationId` : identifiant unique personnalisé
+- Les attributs `RouteAttribute` ont priorité sur les PHPDoc lors de la génération OpenAPI
+- Support du type de contenu dans les réponses OpenAPI générées
+- Nouveaux tests unitaires pour `RouteAttribute` dans la génération OpenAPI
+
+### Changed
+- `ControllerMetadataExtractor` extrait maintenant les attributs `RouteAttribute` en priorité sur les PHPDoc
+- `OpenAPIOperationBuilder` utilise les nouvelles métadonnées (tags, deprecated, operationId, contentType)
+
 ## [0.10.0] - 2026-01-18
 
 ### Added

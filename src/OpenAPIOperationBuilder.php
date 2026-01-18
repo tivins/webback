@@ -24,12 +24,30 @@ class OpenAPIOperationBuilder
         array $parameters,
         array $metadata
     ): array {
+        // Utiliser operationId depuis les métadonnées ou le générer
+        $operationId = !empty($metadata['operationId'])
+            ? $metadata['operationId']
+            : $this->generateOperationId($route['regex'], $method);
+
+        // Déterminer le contentType pour les réponses
+        $contentType = $metadata['contentType'] ?? null;
+
         $operation = [
-            'summary' => $metadata['summary'] ?? ucfirst(strtolower($method)) . ' operation',
+            'summary' => $metadata['summary'] ?: ucfirst(strtolower($method)) . ' operation',
             'description' => $metadata['description'] ?? '',
-            'operationId' => $this->generateOperationId($route['regex'], $method),
-            'responses' => $metadata['responses'] ?: $this->getDefaultResponses($method),
+            'operationId' => $operationId,
+            'responses' => $metadata['responses'] ?: $this->getDefaultResponses($method, $contentType),
         ];
+
+        // Ajouter les tags si présents
+        if (!empty($metadata['tags'])) {
+            $operation['tags'] = $metadata['tags'];
+        }
+
+        // Ajouter deprecated si true
+        if (!empty($metadata['deprecated'])) {
+            $operation['deprecated'] = true;
+        }
 
         // Ajouter les paramètres de chemin
         if (!empty($parameters)) {
@@ -59,17 +77,20 @@ class OpenAPIOperationBuilder
 
     /**
      * Retourne les réponses par défaut selon la méthode HTTP.
+     *
+     * @param string $method La méthode HTTP
+     * @param ContentType|null $contentType Le type de contenu (null = application/json)
      */
-    private function getDefaultResponses(string $method): array
+    private function getDefaultResponses(string $method, ?ContentType $contentType = null): array
     {
+        $mimeType = $this->contentTypeToMime($contentType);
+
         $responses = [
             '200' => [
                 'description' => 'Success',
                 'content' => [
-                    'application/json' => [
-                        'schema' => [
-                            'type' => 'object',
-                        ],
+                    $mimeType => [
+                        'schema' => $this->getSchemaForContentType($contentType),
                     ],
                 ],
             ],
@@ -99,16 +120,40 @@ class OpenAPIOperationBuilder
             $responses['201'] = [
                 'description' => 'Created',
                 'content' => [
-                    'application/json' => [
-                        'schema' => [
-                            'type' => 'object',
-                        ],
+                    $mimeType => [
+                        'schema' => $this->getSchemaForContentType($contentType),
                     ],
                 ],
             ];
         }
 
         return $responses;
+    }
+
+    /**
+     * Convertit un ContentType en type MIME OpenAPI.
+     */
+    private function contentTypeToMime(?ContentType $contentType): string
+    {
+        if ($contentType === null || $contentType === ContentType::AUTO) {
+            return 'application/json';
+        }
+
+        // ContentType::value contient déjà le type MIME
+        return $contentType->value;
+    }
+
+    /**
+     * Retourne le schéma OpenAPI approprié pour un ContentType.
+     */
+    private function getSchemaForContentType(?ContentType $contentType): array
+    {
+        if ($contentType === null || $contentType === ContentType::AUTO || $contentType === ContentType::JSON) {
+            return ['type' => 'object'];
+        }
+
+        // Pour les types textuels (HTML, XML, CSV, TEXT), utiliser string
+        return ['type' => 'string'];
     }
 
     /**

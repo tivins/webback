@@ -16,7 +16,8 @@ class MockRoute implements RouteInterface
     #[RouteAttribute(
         name: 'Test route',
         description: 'Test route used for testing',
-        contentType: ContentType::JSON
+        contentType: ContentType::JSON,
+        tags: ['Testing'],
     )]
     public function trigger(Request $request, array $matches): HTTPResponse
     {

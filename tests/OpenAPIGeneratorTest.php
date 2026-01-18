@@ -6,9 +6,11 @@ namespace Tivins\WebappTests;
 
 use PHPUnit\Framework\TestCase;
 use Tivins\Webapp\API;
+use Tivins\Webapp\ContentType;
 use Tivins\Webapp\HTTPMethod;
 use Tivins\Webapp\HTTPResponse;
 use Tivins\Webapp\Request;
+use Tivins\Webapp\RouteAttribute;
 use Tivins\Webapp\RouteConfig;
 use Tivins\WebappTests\classes\MockRoute;
 
@@ -233,6 +235,82 @@ class OpenAPIGeneratorTest extends TestCase
         self::assertArrayHasKey('/health', $spec['paths']);
         self::assertArrayHasKey('/test', $spec['paths']);
     }
+
+    // === Tests pour RouteAttribute ===
+
+    public function testRouteAttributeMetadataExtraction(): void
+    {
+        $api = new API();
+        $api->get('/users', MockRoute::class);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/users']['get'];
+
+        // Les métadonnées doivent venir de RouteAttribute
+        self::assertEquals('Test route', $operation['summary']);
+        self::assertEquals('Test route used for testing', $operation['description']);
+        self::assertEquals(['Testing'], $operation['tags']);
+    }
+
+    public function testRouteAttributeWithTags(): void
+    {
+        $api = new API();
+        $api->get('/tagged', [RouteAttributeTaggedHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/tagged']['get'];
+        self::assertArrayHasKey('tags', $operation);
+        self::assertEquals(['Users', 'Admin'], $operation['tags']);
+    }
+
+    public function testRouteAttributeWithDeprecated(): void
+    {
+        $api = new API();
+        $api->get('/deprecated', [RouteAttributeDeprecatedHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/deprecated']['get'];
+        self::assertArrayHasKey('deprecated', $operation);
+        self::assertTrue($operation['deprecated']);
+    }
+
+    public function testRouteAttributeWithCustomOperationId(): void
+    {
+        $api = new API();
+        $api->get('/custom-op', [RouteAttributeCustomOperationIdHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/custom-op']['get'];
+        self::assertEquals('myCustomOperationId', $operation['operationId']);
+    }
+
+    public function testRouteAttributeWithHtmlContentType(): void
+    {
+        $api = new API();
+        $api->get('/html', [RouteAttributeHtmlHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/html']['get'];
+        self::assertArrayHasKey('text/html', $operation['responses']['200']['content']);
+    }
+
+    public function testRouteAttributePriorityOverPhpDoc(): void
+    {
+        $api = new API();
+        $api->get('/priority', [RouteAttributeWithPhpDocHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/priority']['get'];
+        // L'attribut doit avoir priorité sur le PHPDoc
+        self::assertEquals('From Attribute', $operation['summary']);
+        self::assertEquals('Attribute description', $operation['description']);
+    }
 }
 
 /**
@@ -248,5 +326,88 @@ class OpenAPICallableHandler
     public static function handle(Request $request, array $matches): HTTPResponse
     {
         return new HTTPResponse(200, ['type' => 'callable_array']);
+    }
+}
+
+/**
+ * Handler avec RouteAttribute et tags multiples.
+ */
+class RouteAttributeTaggedHandler
+{
+    #[RouteAttribute(
+        name: 'Tagged operation',
+        description: 'Operation with multiple tags',
+        tags: ['Users', 'Admin']
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec RouteAttribute deprecated.
+ */
+class RouteAttributeDeprecatedHandler
+{
+    #[RouteAttribute(
+        name: 'Deprecated operation',
+        description: 'This operation is deprecated',
+        deprecated: true
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec RouteAttribute et operationId personnalisé.
+ */
+class RouteAttributeCustomOperationIdHandler
+{
+    #[RouteAttribute(
+        name: 'Custom operation',
+        operationId: 'myCustomOperationId'
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec RouteAttribute et ContentType HTML.
+ */
+class RouteAttributeHtmlHandler
+{
+    #[RouteAttribute(
+        name: 'HTML page',
+        description: 'Returns an HTML page',
+        contentType: ContentType::HTML
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200, '<html></html>');
+    }
+}
+
+/**
+ * Handler avec RouteAttribute ET PHPDoc - l'attribut doit avoir priorité.
+ */
+class RouteAttributeWithPhpDocHandler
+{
+    /**
+     * From PHPDoc summary.
+     *
+     * PHPDoc description that should be ignored.
+     */
+    #[RouteAttribute(
+        name: 'From Attribute',
+        description: 'Attribute description'
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
     }
 }
