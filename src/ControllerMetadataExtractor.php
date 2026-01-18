@@ -5,34 +5,62 @@ declare(strict_types=1);
 namespace Tivins\Webapp;
 
 /**
- * Extrait les métadonnées depuis les classes contrôleurs (PHPDoc, réflexion).
+ * Extrait les métadonnées depuis les handlers de routes (classes, closures, callables).
  */
 class ControllerMetadataExtractor
 {
     /**
-     * Extrait les métadonnées depuis la classe contrôleur.
+     * Extrait les métadonnées depuis un handler de route.
      *
-     * @param string $className Le nom complet de la classe contrôleur
+     * @param string|\Closure|array $handler Le handler (nom de classe, closure, ou callable array)
      * @return array{summary: string, description: string, responses: array}
      */
-    public function extract(string $className): array
+    public function extract(string|\Closure|array $handler): array
     {
-        if (!class_exists($className)) {
-            return [
-                'summary' => '',
-                'description' => '',
-                'responses' => [],
-            ];
-        }
-
-        $reflection = new \ReflectionClass($className);
-        $docComment = $reflection->getDocComment() ?: '';
+        $docComment = $this->getDocComment($handler);
 
         return [
             'summary' => $this->extractSummaryFromDoc($docComment),
             'description' => $this->extractDescriptionFromDoc($docComment),
             'responses' => $this->extractResponsesFromDoc($docComment),
         ];
+    }
+
+    /**
+     * Récupère le PHPDoc selon le type de handler.
+     *
+     * @param string|\Closure|array $handler Le handler
+     * @return string Le commentaire PHPDoc ou chaîne vide
+     */
+    private function getDocComment(string|\Closure|array $handler): string
+    {
+        // Cas 1: Nom de classe (string)
+        if (is_string($handler)) {
+            if (!class_exists($handler)) {
+                return '';
+            }
+            $reflection = new \ReflectionClass($handler);
+            return $reflection->getDocComment() ?: '';
+        }
+
+        // Cas 2: Closure
+        if ($handler instanceof \Closure) {
+            $reflection = new \ReflectionFunction($handler);
+            return $reflection->getDocComment() ?: '';
+        }
+
+        // Cas 3: Callable array [Class::class, 'method'] ou [$object, 'method']
+        if (is_array($handler) && count($handler) === 2) {
+            [$classOrObject, $method] = $handler;
+            try {
+                $reflection = new \ReflectionMethod($classOrObject, $method);
+                return $reflection->getDocComment() ?: '';
+            } catch (\ReflectionException) {
+                return '';
+            }
+        }
+
+        return '';
     }
 
     /**

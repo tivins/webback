@@ -5,6 +5,19 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.10.0] - 2026-01-18
+
+### Added
+- Support des callables (closures et callable arrays) en plus des classes pour les handlers de routes
+- Les méthodes `get()`, `post()` et `setRoutes()` acceptent maintenant `string|\Closure|array` comme handler
+- Extraction automatique des métadonnées PHPDoc depuis les closures et méthodes de classe pour OpenAPI
+- Nouveaux tests unitaires pour valider le support des callables
+
+### Changed
+- **BREAKING**: Renommage de la propriété `class` en `handler` dans `RouteConfig`
+- Modification de `ControllerMetadataExtractor` pour supporter l'extraction de PHPDoc depuis les closures et callable arrays
+- Mise à jour de `OpenAPIGenerator` pour utiliser le nouveau nom de propriété `handler`
+
 ## [0.9.0] - 2026-01-18
 
 ### Added

@@ -23,15 +23,15 @@ class API
     /**
      * Définit les routes de l'API.
      *
-     * @param array<string, RouteConfig> $routes Tableau associatif où les clés sont des expressions régulières
-     *                                         et les valeurs sont des objets RouteConfig
+     * @param array<RouteConfig> $routes Tableau d'objets RouteConfig
      * @return static Instance courante pour le chaînage de méthodes
      *
      * @example
      * ```php
      * $api->setRoutes([
-     *     '/users/(\d+)' => new RouteConfig(UserController::class, HTTPMethod::GET),
-     *     '/users' => new RouteConfig(UsersController::class, HTTPMethod::POST),
+     *     new RouteConfig('/users/(\d+)', UserController::class, HTTPMethod::GET),
+     *     new RouteConfig('/users', UsersController::class, HTTPMethod::POST),
+     *     new RouteConfig('/health', fn($req, $matches) => new HTTPResponse(200, ['status' => 'ok'])),
      * ]);
      * ```
      */
@@ -40,28 +40,42 @@ class API
         foreach ($routes as $route) {
             $this->routesByMethod[$route->method->value][] = [
                 'pattern' => "~^$this->basePath$route->pattern$~",
-                'class' => $route->class,
+                'handler' => $route->handler,
                 'regex' => $route->pattern
             ];
         }
         return $this;
     }
 
-    public function get(string $pattern, string $class): static
+    /**
+     * Enregistre une route GET.
+     *
+     * @param string $pattern Le pattern de la route (expression régulière)
+     * @param string|\Closure|array $handler Le contrôleur ou callable à exécuter
+     * @return static Instance courante pour le chaînage de méthodes
+     */
+    public function get(string $pattern, string|\Closure|array $handler): static
     {
         $this->routesByMethod[HTTPMethod::GET->value][] = [
             'pattern' => "~^$this->basePath$pattern$~",
-            'class' => $class,
+            'handler' => $handler,
             'regex' => $pattern
         ];
         return $this;
     }
 
-    public function post(string $pattern, string $class): static
+    /**
+     * Enregistre une route POST.
+     *
+     * @param string $pattern Le pattern de la route (expression régulière)
+     * @param string|\Closure|array $handler Le contrôleur ou callable à exécuter
+     * @return static Instance courante pour le chaînage de méthodes
+     */
+    public function post(string $pattern, string|\Closure|array $handler): static
     {
         $this->routesByMethod[HTTPMethod::POST->value][] = [
             'pattern' => "~^$this->basePath$pattern$~",
-            'class' => $class,
+            'handler' => $handler,
             'regex' => $pattern
         ];
         return $this;
@@ -71,17 +85,17 @@ class API
      * Exécute une requête et retourne la réponse HTTP correspondante.
      *
      * Recherche une route correspondante selon la méthode HTTP et le chemin de la requête.
-     * Si une route correspond, instancie le contrôleur associé et appelle sa méthode trigger().
+     * Si une route correspond, exécute le handler associé (classe ou callable).
      * Sinon, retourne une réponse 404.
      *
      * @param Request $request La requête HTTP à traiter
-     * @return HTTPResponse La réponse HTTP générée par le contrôleur ou une erreur 404
+     * @return HTTPResponse La réponse HTTP générée par le handler ou une erreur 404
      *
      * @example
      * ```php
      * $request = Request::fromHTTP();
      * $response = $api->execute($request);
-     * // $response contient la réponse du contrôleur ou une erreur 404
+     * // $response contient la réponse du handler ou une erreur 404
      * ```
      */
     public function execute(Request $request): HTTPResponse
@@ -90,12 +104,31 @@ class API
         foreach ($routes as $compiled) {
             if (preg_match($compiled['pattern'], $request->path, $matches)) {
                 unset($matches[0]);
-                return (new $compiled['class'])->trigger($request, $matches);
+                return $this->executeHandler($compiled['handler'], $request, $matches);
             }
         }
         return new HTTPResponse(code: 404, messages: [
             new Message("Route not found {$request->method->value}:$request->path", MessageType::Error),
         ]);
+    }
+
+    /**
+     * Exécute un handler de route (classe ou callable).
+     *
+     * @param string|\Closure|array $handler Le handler à exécuter
+     * @param Request $request La requête HTTP
+     * @param array $matches Les captures de l'expression régulière
+     * @return HTTPResponse La réponse HTTP
+     */
+    private function executeHandler(string|\Closure|array $handler, Request $request, array $matches): HTTPResponse
+    {
+        // Si c'est une string, c'est un nom de classe qui implémente RouteInterface
+        if (is_string($handler)) {
+            return (new $handler)->trigger($request, $matches);
+        }
+
+        // Sinon, c'est un callable (Closure ou array)
+        return $handler($request, $matches);
     }
 
     /**

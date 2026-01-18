@@ -136,6 +136,15 @@ $api->setRoutes([
 
 $api->get('/users', MyRoute::class)
     ->post('/sign-in', MySignInRoute::class);
+
+# Or using closures for simple routes
+
+$api->get('/health', fn($req, $matches) => new HTTPResponse(200, ['status' => 'ok']))
+    ->get('/users/(\d+)', fn($req, $matches) => new HTTPResponse(200, ['id' => $matches[1]]));
+
+# Or using callable arrays
+
+$api->get('/test', [MyController::class, 'handleTest']);
 ```
 Trigger the API
 

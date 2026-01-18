@@ -7,6 +7,7 @@ namespace Tivins\WebappTests;
 use PHPUnit\Framework\TestCase;
 use Tivins\Webapp\API;
 use Tivins\Webapp\HTTPMethod;
+use Tivins\Webapp\HTTPResponse;
 use Tivins\Webapp\Message;
 use Tivins\Webapp\MessageType;
 use Tivins\Webapp\Request;
@@ -172,4 +173,97 @@ class APITest extends TestCase
         self::assertEquals(200, $response->code);
     }
 
+    // === Tests pour les callables ===
+
+    public function testExecuteWithClosure(): void
+    {
+        $api = new API();
+        $api->get('/health', fn(Request $req, array $matches) => new HTTPResponse(200, ['status' => 'ok']));
+
+        $request = new Request(method: HTTPMethod::GET, path: '/health');
+        $response = $api->execute($request);
+
+        self::assertEquals(200, $response->code);
+        self::assertEquals(['status' => 'ok'], $response->body);
+    }
+
+    public function testExecuteWithClosureAndCaptures(): void
+    {
+        $api = new API();
+        $api->get('/users/(\d+)', fn(Request $req, array $matches) => new HTTPResponse(200, ['id' => $matches[1]]));
+
+        $request = new Request(method: HTTPMethod::GET, path: '/users/42');
+        $response = $api->execute($request);
+
+        self::assertEquals(200, $response->code);
+        self::assertEquals('42', $response->body['id']);
+    }
+
+    public function testSetRoutesWithClosure(): void
+    {
+        $api = new API();
+        $api->setRoutes([
+            new RouteConfig('/ping', fn($req, $m) => new HTTPResponse(200, ['pong' => true]), HTTPMethod::GET),
+        ]);
+
+        $request = new Request(method: HTTPMethod::GET, path: '/ping');
+        $response = $api->execute($request);
+
+        self::assertEquals(200, $response->code);
+        self::assertTrue($response->body['pong']);
+    }
+
+    public function testPostWithClosure(): void
+    {
+        $api = new API();
+        $api->post('/echo', fn(Request $req, array $matches) => new HTTPResponse(201, $req->body));
+
+        $request = new Request(method: HTTPMethod::POST, path: '/echo', body: ['message' => 'hello']);
+        $response = $api->execute($request);
+
+        self::assertEquals(201, $response->code);
+        self::assertEquals(['message' => 'hello'], $response->body);
+    }
+
+    public function testMixedClassAndClosureRoutes(): void
+    {
+        $api = new API();
+        $api->get('/users', MockRoute::class);
+        $api->get('/health', fn($req, $m) => new HTTPResponse(200, ['status' => 'ok']));
+
+        // Test route avec classe
+        $request1 = new Request(method: HTTPMethod::GET, path: '/users');
+        $response1 = $api->execute($request1);
+        self::assertEquals(200, $response1->code);
+        self::assertArrayHasKey('path', $response1->body);
+
+        // Test route avec closure
+        $request2 = new Request(method: HTTPMethod::GET, path: '/health');
+        $response2 = $api->execute($request2);
+        self::assertEquals(200, $response2->code);
+        self::assertEquals(['status' => 'ok'], $response2->body);
+    }
+
+    public function testExecuteWithCallableArray(): void
+    {
+        $api = new API();
+        $api->get('/test', [CallableHandler::class, 'handle']);
+
+        $request = new Request(method: HTTPMethod::GET, path: '/test');
+        $response = $api->execute($request);
+
+        self::assertEquals(200, $response->code);
+        self::assertEquals('callable_array', $response->body['type']);
+    }
+}
+
+/**
+ * Classe helper pour tester les callable arrays.
+ */
+class CallableHandler
+{
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200, ['type' => 'callable_array', 'path' => $request->path]);
+    }
 }

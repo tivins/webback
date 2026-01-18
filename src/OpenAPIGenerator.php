@@ -49,8 +49,8 @@ readonly class OpenAPIGenerator
                 $openApiPath = $conversion['path'];
                 $parameters = $conversion['parameters'];
 
-                // 5. Extraire les métadonnées du contrôleur
-                $metadata = $this->metadataExtractor->extract($route['class']);
+                // 5. Extraire les métadonnées du handler
+                $metadata = $this->metadataExtractor->extract($route['handler']);
 
                 // 6. Construire l'opération OpenAPI
                 $operation = $this->operationBuilder->build(
