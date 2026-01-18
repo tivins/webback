@@ -46,6 +46,11 @@ class RouteAttribute
      * @param array<string> $tags Tags pour grouper les opérations dans OpenAPI
      * @param bool $deprecated Indique si l'opération est dépréciée
      * @param string $operationId Identifiant unique de l'opération (auto-généré si vide)
+     * @param string|array $returnType Type de retour de la route pour la génération du schéma OpenAPI.
+     *                                 Peut être :
+     *                                 - Une string : nom de classe (ex: 'User' ou User::class)
+     *                                 - Une string avec [] : tableau (ex: 'User[]')
+     *                                 - Un array : mapping code HTTP => type (ex: ['200' => 'User', '404' => 'Error'])
      */
     public function __construct(
         public string $name = '',
@@ -54,5 +59,6 @@ class RouteAttribute
         public array $tags = [],
         public bool $deprecated = false,
         public string $operationId = '',
+        public string|array $returnType = '',
     ) { }
 }

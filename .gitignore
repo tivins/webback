@@ -3,5 +3,4 @@
 /vendor/
 /.tmp/
 .env
-project/internal/
-project/readme.tpl.md
+project/

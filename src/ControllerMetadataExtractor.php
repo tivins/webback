@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Tivins\Webapp;
 
 use ReflectionAttribute;
-use ReflectionClass;
 use ReflectionException;
-use ReflectionFunction;
 use ReflectionMethod;
 
 /**
@@ -21,6 +19,10 @@ use ReflectionMethod;
  * - La méthode `trigger()` pour les classes implémentant RouteInterface
  * - La méthode spécifiée pour les callable arrays [Class::class, 'method']
  * - Les closures ne supportent pas les attributs (PHPDoc utilisé)
+ *
+ * Le type de retour (`returnType`) est extrait selon l'ordre de priorité :
+ * 1. `RouteAttribute->returnType` (explicite, prioritaire)
+ * 2. PHPDoc `@return` avec parsing du type
  */
 class ControllerMetadataExtractor
 {
@@ -32,13 +34,18 @@ class ControllerMetadataExtractor
      * 2. PHPDoc de la méthode/classe/closure
      *
      * @param string|\Closure|array $handler Le handler (nom de classe, closure, ou callable array)
-     * @return array{summary: string, description: string, responses: array, contentType: ?ContentType, tags: array, deprecated: bool, operationId: string}
+     * @return array{summary: string, description: string, responses: array, contentType: ?ContentType, tags: array, deprecated: bool, operationId: string, returnType: string|array|null}
      */
     public function extract(string|\Closure|array $handler): array
     {
         // 1. Tenter d'extraire depuis RouteAttribute (prioritaire)
         $attributeMetadata = $this->extractFromAttribute($handler);
         if ($attributeMetadata !== null) {
+            // Si returnType n'est pas défini dans l'attribut, essayer PHPDoc
+            if (empty($attributeMetadata['returnType'])) {
+                $docComment = $this->getDocComment($handler);
+                $attributeMetadata['returnType'] = $this->extractReturnTypeFromDoc($docComment);
+            }
             return $attributeMetadata;
         }
 
@@ -53,6 +60,7 @@ class ControllerMetadataExtractor
             'tags' => [],
             'deprecated' => false,
             'operationId' => '',
+            'returnType' => $this->extractReturnTypeFromDoc($docComment),
         ];
     }
 
@@ -90,6 +98,7 @@ class ControllerMetadataExtractor
                 'tags' => $classAttribute->tags,
                 'deprecated' => $classAttribute->deprecated,
                 'operationId' => $classAttribute->operationId,
+                'returnType' => $classAttribute->returnType,
             ];
         }
 
@@ -109,6 +118,7 @@ class ControllerMetadataExtractor
                 'tags' => $methodAttribute->tags,
                 'deprecated' => $methodAttribute->deprecated,
                 'operationId' => $methodAttribute->operationId,
+                'returnType' => $methodAttribute->returnType,
             ];
         }
 
@@ -118,6 +128,11 @@ class ControllerMetadataExtractor
         }
 
         // 3. Fusionner : valeurs de la classe par défaut, surchargées par celles de la méthode
+        // Pour returnType, la méthode a priorité, sinon la classe
+        $returnType = !empty($methodAttributes['returnType'])
+            ? $methodAttributes['returnType']
+            : ($classAttributes['returnType'] ?? '');
+
         $merged = [
             'summary' => $methodAttributes['summary'] ?? $classAttributes['summary'] ?? '',
             'description' => $methodAttributes['description'] ?? $classAttributes['description'] ?? '',
@@ -125,6 +140,7 @@ class ControllerMetadataExtractor
             'tags' => array_unique(array_merge($classAttributes['tags'] ?? [], $methodAttributes['tags'] ?? [])),
             'deprecated' => $methodAttributes['deprecated'] ?? $classAttributes['deprecated'] ?? false,
             'operationId' => $methodAttributes['operationId'] ?? $classAttributes['operationId'] ?? '',
+            'returnType' => $returnType,
             'responses' => [],
         ];
 
@@ -275,5 +291,47 @@ class ControllerMetadataExtractor
         // TODO: Parser les annotations @return ou @response dans le PHPDoc
         // Pour l'instant, on retourne un tableau vide
         return [];
+    }
+
+    /**
+     * Extrait le type de retour depuis le PHPDoc.
+     *
+     * Parse l'annotation @return pour extraire le type de retour.
+     * Supporte les formats :
+     * - @return User
+     * - @return User[]
+     * - @return HTTPResponse<User>
+     * - @return \App\Models\User
+     *
+     * @param string $docComment Le commentaire PHPDoc
+     * @return string|null Le type de retour ou null si non trouvé
+     */
+    private function extractReturnTypeFromDoc(string $docComment): ?string
+    {
+        if (empty($docComment)) {
+            return null;
+        }
+
+        // Pattern pour extraire @return type
+        // Supporte: User, User[], HTTPResponse<User>, \Namespace\Class
+        if (preg_match('/@return\s+(\S+)/', $docComment, $matches)) {
+            $type = $matches[1];
+
+            // Ignorer les types génériques PHP comme HTTPResponse (garder le type complet)
+            // Si c'est HTTPResponse<Type>, extraire Type
+            if (preg_match('/^HTTPResponse<(.+)>$/', $type, $genericMatches)) {
+                return $genericMatches[1];
+            }
+
+            // Ignorer les types primitifs qui ne sont pas utiles pour les schémas
+            $ignoredTypes = ['void', 'null', 'self', 'static', 'mixed', 'HTTPResponse'];
+            if (in_array($type, $ignoredTypes, true)) {
+                return null;
+            }
+
+            return $type;
+        }
+
+        return null;
     }
 }

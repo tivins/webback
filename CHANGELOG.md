@@ -5,6 +5,28 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.13.0] - 2026-01-18
+
+### Added
+- Nouvelle classe `OpenAPISchemaBuilder` pour générer des schémas OpenAPI depuis les classes PHP
+  - Support des types primitifs (int, float, bool, string)
+  - Support de DateTime avec format `date-time`
+  - Support des tableaux avec notation `Type[]`
+  - Support des classes `Mappable` avec génération récursive de schémas
+  - Mise en cache des schémas générés pour optimiser les performances
+  - Génération de références `$ref` vers `components/schemas`
+  - Extraction des descriptions depuis PHPDoc (`@property`)
+- Nouveau paramètre `returnType` dans `RouteAttribute` pour spécifier le type de retour d'une route
+  - Peut être une string (`'User'` ou `User::class`)
+  - Peut être un tableau pour un type de tableau (`'User[]'`)
+  - Peut être un array pour les réponses multiples (`['200' => 'User', '404' => 'Error']`)
+- Extraction du type de retour depuis PHPDoc `@return` dans `ControllerMetadataExtractor`
+  - Support de `@return User`, `@return User[]`, `@return HTTPResponse<User>`
+
+### Changed
+- `ControllerMetadataExtractor::extract()` retourne maintenant une clé `returnType` dans les métadonnées
+- Les métadonnées extraites incluent le fallback vers PHPDoc si `returnType` n'est pas défini dans `RouteAttribute`
+
 ## [0.12.0] - 2026-01-18
 
 ### Added

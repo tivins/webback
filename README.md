@@ -1,6 +1,17 @@
 # Webback
 
-## Database
+ 
+## Install
+
+Using [Packagist](https://packagist.org/packages/tivins/webback)
+
+```shell
+composer require tivins/webback
+```
+
+## Documentation
+
+### Database
 
 Pour utiliser une ou plusieurs bases de données, il faut créer autant de connecteurs qui de bases liées.
 Il existe différents connecteurs pour chaque type de base de données (SQLite, MySQL, etc.).
@@ -38,8 +49,7 @@ Il existe différents connecteurs pour chaque type de base de données (SQLite, 
     $database = new Database($connector);
     ```
 
-
-## Mappable & DatabaseRegistry
+### Mappable & DatabaseRegistry
 
 Pour commencer, nous devons définir un value-objet, qui étend de `Mappable`.
 
@@ -106,9 +116,14 @@ MyApplicationRegistries::myObjects()->save($myObject1);
 echo $myObject1->id; # Outputs 1
 ```
 
-## API 
+### API 
 
-Une route est représentée par une classe qui implémente `RouteInterface`.
+Une route est représentée par une ~~classe qui implémente `RouteInterface`~~ un `callable`:
+
+* `MyRoute::class`
+* `[MyRoute::class, 'method']`
+* closure: `fn($matches) => new HTTPResponse(200, ['hello' => 'world'])`
+
 
 ```php
 use \Tivins\Webapp\RouteInterface;
@@ -171,7 +186,7 @@ Trigger and get contents :
 $response = $api->execute($request);
 ```
 
-## Dev notes
+### Dev notes
 
 Using PHP Builtin webserver :
 
