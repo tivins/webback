@@ -10,7 +10,7 @@ readonly class HTTPResponse
      * Crée une nouvelle réponse HTTP.
      *
      * @param int $code Le code de statut HTTP (200, 404, 500, etc.)
-     * @param array|string $body Le corps de la réponse (tableau pour JSON, string pour autres types)
+     * @param array|string|object|null $body Le corps de la réponse (tableau pour JSON, string pour autres types)
      * @param array $messages Tableau de messages (erreurs, succès, etc.)
      * @param ContentType $contentType Le type de contenu de la réponse
      *
@@ -32,8 +32,8 @@ readonly class HTTPResponse
      */
     public function __construct(
         public int          $code = 200,
-        public array|string $body = '',
-        public array|object $messages = [],
+        public array|string|object|null $body = null,
+        public array $messages = [],
         public ContentType  $contentType = ContentType::JSON,
     )
     {
