@@ -5,6 +5,28 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.14.0] - 2026-01-18
+
+### Added
+- **Intégration complète des schémas Mappable dans OpenAPI** (Phase 2) :
+  - `OpenAPIOperationBuilder` utilise maintenant `OpenAPISchemaBuilder` pour générer les schémas de réponse
+  - Les routes avec `returnType` dans `RouteAttribute` génèrent automatiquement des schémas détaillés
+  - Support des tableaux de Mappable (`User[]`) avec schéma OpenAPI `array` et `items.$ref`
+  - Support des réponses multiples par code HTTP (`['200' => 'User', '404' => 'Error']`)
+  - Génération automatique de la section `components/schemas` dans la spécification OpenAPI
+  - Les schémas sont partagés entre les routes (réutilisation via `$ref`)
+- `OpenAPIOperationBuilder` accepte maintenant `OpenAPISchemaBuilder` en dépendance
+- Nouvelle méthode `OpenAPIOperationBuilder::getSchemaBuilder()` pour accéder au builder
+- Tests d'intégration pour valider le flux complet route → schéma OpenAPI
+
+### Changed
+- `OpenAPIGenerator` ajoute automatiquement `components/schemas` si des schémas Mappable sont utilisés
+- `OpenAPIOperationBuilder::getDefaultResponses()` utilise le `returnType` pour générer les schémas
+- Amélioration du cache de `OpenAPISchemaBuilder` pour supporter plusieurs instances
+
+### Fixed
+- Correction du cache statique de `OpenAPISchemaBuilder` qui ne remplissait pas `componentsSchemas` sur les instances ultérieures
+
 ## [0.13.0] - 2026-01-18
 
 ### Added

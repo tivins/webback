@@ -355,6 +355,138 @@ class OpenAPIGeneratorTest extends TestCase
         self::assertEquals('Class name', $operation['summary']);
         self::assertEquals('Class description', $operation['description']);
     }
+
+    // === Tests Phase 2 : Intégration avec les schémas Mappable ===
+
+    public function testReturnTypeMappableGeneratesRefSchema(): void
+    {
+        $api = new API();
+        $api->get('/users/(\d+)', [RouteAttributeWithReturnTypeHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/users/{id}']['get'];
+
+        // Vérifier que la réponse 200 utilise une référence $ref
+        self::assertArrayHasKey('responses', $operation);
+        self::assertArrayHasKey('200', $operation['responses']);
+        $schema = $operation['responses']['200']['content']['application/json']['schema'];
+        self::assertArrayHasKey('$ref', $schema);
+        self::assertEquals('#/components/schemas/TestUserMappable', $schema['$ref']);
+    }
+
+    public function testReturnTypeMappableGeneratesComponentsSchemas(): void
+    {
+        $api = new API();
+        $api->get('/users/(\d+)', [RouteAttributeWithReturnTypeHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        // Vérifier que la section components/schemas est présente
+        self::assertArrayHasKey('components', $spec);
+        self::assertArrayHasKey('schemas', $spec['components']);
+        self::assertArrayHasKey('TestUserMappable', $spec['components']['schemas']);
+
+        // Vérifier le contenu du schéma
+        $userSchema = $spec['components']['schemas']['TestUserMappable'];
+        self::assertEquals('object', $userSchema['type']);
+        self::assertArrayHasKey('properties', $userSchema);
+        self::assertArrayHasKey('id', $userSchema['properties']);
+        self::assertArrayHasKey('name', $userSchema['properties']);
+        self::assertArrayHasKey('email', $userSchema['properties']);
+        // Vérifier les types (les descriptions PHPDoc peuvent être présentes)
+        self::assertEquals('integer', $userSchema['properties']['id']['type']);
+        self::assertEquals('string', $userSchema['properties']['name']['type']);
+        self::assertEquals('string', $userSchema['properties']['email']['type']);
+    }
+
+    public function testReturnTypeArrayOfMappable(): void
+    {
+        $api = new API();
+        $api->get('/users', [RouteAttributeWithArrayReturnTypeHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/users']['get'];
+
+        // Vérifier que la réponse 200 utilise un schéma array avec $ref
+        $schema = $operation['responses']['200']['content']['application/json']['schema'];
+        self::assertEquals('array', $schema['type']);
+        self::assertArrayHasKey('items', $schema);
+        self::assertArrayHasKey('$ref', $schema['items']);
+        self::assertEquals('#/components/schemas/TestUserMappable', $schema['items']['$ref']);
+    }
+
+    public function testReturnTypeMappedByStatusCode(): void
+    {
+        $api = new API();
+        $api->get('/articles/(\d+)', [RouteAttributeWithMappedReturnTypeHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/articles/{id}']['get'];
+
+        // Vérifier les réponses mappées par code HTTP
+        self::assertArrayHasKey('200', $operation['responses']);
+        self::assertArrayHasKey('404', $operation['responses']);
+
+        // 200 -> TestArticleMappable
+        $schema200 = $operation['responses']['200']['content']['application/json']['schema'];
+        self::assertArrayHasKey('$ref', $schema200);
+        self::assertEquals('#/components/schemas/TestArticleMappable', $schema200['$ref']);
+
+        // 404 -> object
+        $schema404 = $operation['responses']['404']['content']['application/json']['schema'];
+        self::assertEquals(['type' => 'object'], $schema404);
+    }
+
+    public function testReturnTypeMappableWithDateTimeProperty(): void
+    {
+        $api = new API();
+        $api->get('/articles/(\d+)', [RouteAttributeWithMappedReturnTypeHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        // Vérifier le schéma TestArticleMappable dans components
+        self::assertArrayHasKey('TestArticleMappable', $spec['components']['schemas']);
+        $articleSchema = $spec['components']['schemas']['TestArticleMappable'];
+
+        // Vérifier que created_at est formaté en date-time
+        self::assertArrayHasKey('created_at', $articleSchema['properties']);
+        self::assertEquals('string', $articleSchema['properties']['created_at']['type']);
+        self::assertEquals('date-time', $articleSchema['properties']['created_at']['format']);
+    }
+
+    public function testNoReturnTypeUsesDefaultObjectSchema(): void
+    {
+        $api = new API();
+        $api->get('/users', MockRoute::class);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/users']['get'];
+
+        // Sans returnType, le schéma par défaut est 'object'
+        $schema = $operation['responses']['200']['content']['application/json']['schema'];
+        self::assertEquals(['type' => 'object'], $schema);
+
+        // Pas de section components/schemas si aucun Mappable n'est référencé
+        self::assertArrayNotHasKey('components', $spec);
+    }
+
+    public function testMultipleRoutesShareSchemas(): void
+    {
+        $api = new API();
+        $api->get('/users', [RouteAttributeWithArrayReturnTypeHandler::class, 'handle']);
+        $api->get('/users/(\d+)', [RouteAttributeWithReturnTypeHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        // Les deux routes référencent TestUserMappable, il ne doit y avoir qu'un seul schéma
+        self::assertArrayHasKey('components', $spec);
+        self::assertCount(1, $spec['components']['schemas']);
+        self::assertArrayHasKey('TestUserMappable', $spec['components']['schemas']);
+    }
 }
 
 /**
@@ -499,6 +631,86 @@ class RouteAttributeClassAndMethodHandler
 )]
 class RouteAttributeClassOnlyHandler
 {
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+// === Classes Mappable pour les tests d'intégration Phase 2 ===
+
+use Tivins\Webapp\Mappable;
+use DateTime;
+
+/**
+ * Un utilisateur pour les tests.
+ *
+ * @property int $id L'identifiant unique
+ * @property string $name Le nom de l'utilisateur
+ * @property string $email L'adresse email
+ */
+class TestUserMappable extends Mappable
+{
+    public int $id;
+    public string $name;
+    public string $email;
+}
+
+/**
+ * Un article pour les tests (avec relation).
+ *
+ * @property int $id L'identifiant de l'article
+ * @property string $title Le titre de l'article
+ */
+class TestArticleMappable extends Mappable
+{
+    public int $id;
+    public string $title;
+    public DateTime $created_at;
+}
+
+/**
+ * Handler avec returnType simple (classe Mappable).
+ */
+class RouteAttributeWithReturnTypeHandler
+{
+    #[RouteAttribute(
+        name: 'Get user',
+        description: 'Retrieves a user by ID',
+        returnType: TestUserMappable::class
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec returnType tableau de Mappable.
+ */
+class RouteAttributeWithArrayReturnTypeHandler
+{
+    #[RouteAttribute(
+        name: 'List users',
+        description: 'Retrieves all users',
+        returnType: TestUserMappable::class . '[]'
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler avec returnType mapping code HTTP => type.
+ */
+class RouteAttributeWithMappedReturnTypeHandler
+{
+    #[RouteAttribute(
+        name: 'Get article',
+        description: 'Retrieves an article by ID',
+        returnType: ['200' => TestArticleMappable::class, '404' => 'object']
+    )]
     public static function handle(Request $request, array $matches): HTTPResponse
     {
         return new HTTPResponse(200);

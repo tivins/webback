@@ -6,6 +6,12 @@ namespace Tivins\Webapp;
 
 /**
  * Génère une spécification OpenAPI 3.0.3 à partir des routes enregistrées.
+ *
+ * Cette classe orchestre la génération de la spécification OpenAPI complète,
+ * incluant les paths, les opérations, et les schémas de composants.
+ *
+ * La section `components/schemas` est automatiquement générée à partir des
+ * types de retour définis dans les `RouteAttribute` des handlers.
  */
 readonly class OpenAPIGenerator
 {
@@ -66,6 +72,14 @@ readonly class OpenAPIGenerator
                 }
                 $spec['paths'][$openApiPath][strtolower($method)] = $operation;
             }
+        }
+
+        // 8. Ajouter les schémas de composants générés
+        $componentsSchemas = $this->operationBuilder->getSchemaBuilder()->getComponentsSchemas();
+        if (!empty($componentsSchemas)) {
+            $spec['components'] = [
+                'schemas' => $componentsSchemas,
+            ];
         }
 
         return $spec;

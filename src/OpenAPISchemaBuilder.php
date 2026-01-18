@@ -139,6 +139,10 @@ class OpenAPISchemaBuilder
 
         // Vérifier le cache
         if (isset(self::$schemaCache[$className])) {
+            // S'assurer que le schéma est aussi dans componentsSchemas de cette instance
+            if (!isset($this->componentsSchemas[$schemaName])) {
+                $this->componentsSchemas[$schemaName] = self::$schemaCache[$className]['schema'];
+            }
             if ($useRef) {
                 return ['$ref' => "#/components/schemas/$schemaName"];
             }
