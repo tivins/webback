@@ -8,6 +8,7 @@ use PHPUnit\Framework\TestCase;
 use Tivins\Webapp\API;
 use Tivins\Webapp\HTTPMethod;
 use Tivins\Webapp\RouteConfig;
+use Tivins\WebappTests\classes\MockRoute;
 
 class OpenAPIGeneratorTest extends TestCase
 {

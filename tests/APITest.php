@@ -7,23 +7,11 @@ namespace Tivins\WebappTests;
 use PHPUnit\Framework\TestCase;
 use Tivins\Webapp\API;
 use Tivins\Webapp\HTTPMethod;
-use Tivins\Webapp\HTTPResponse;
 use Tivins\Webapp\Message;
 use Tivins\Webapp\MessageType;
 use Tivins\Webapp\Request;
-use Tivins\Webapp\RouteInterface;
 use Tivins\Webapp\RouteConfig;
-
-/**
- * Mock route pour les tests
- */
-class MockRoute implements RouteInterface
-{
-    public function trigger(Request $request, array $matches): HTTPResponse
-    {
-        return new HTTPResponse(code: 200, body: ['matches' => $matches, 'path' => $request->path]);
-    }
-}
+use Tivins\WebappTests\classes\MockRoute;
 
 
 class APITest extends TestCase
