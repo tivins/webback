@@ -5,6 +5,26 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.15.0] - 2026-01-18
+
+### Added
+- **Amélioration du parsing PHPDoc pour les descriptions** (Phase 3) :
+  - Support de l'annotation `@var` sur les propriétés individuelles pour documenter les propriétés
+  - Parsing amélioré de `@property` avec support des descriptions multi-lignes
+  - Support de `@property-read` et `@property-write` dans le PHPDoc des classes
+  - Les descriptions des propriétés et des classes sont maintenant toujours incluses dans les schémas OpenAPI (plus besoin de `includeDescriptions`)
+- Nouvelle méthode `extractVarDescription()` dans `OpenAPISchemaBuilder` pour extraire les descriptions depuis `@var`
+- Tests complets pour valider le parsing PHPDoc avec différents formats
+
+### Changed
+- **BREAKING**: Les descriptions sont maintenant toujours incluses dans les schémas générés par `buildFromMappable()` (l'option `includeDescriptions` n'est plus nécessaire)
+- Amélioration du parsing `@property` pour gérer les descriptions multi-lignes et les cas complexes
+- Priorité des descriptions : `@var` sur les propriétés individuelles > `@property` dans le PHPDoc de la classe
+- Nettoyage automatique des caractères de fin de commentaire (`*/`, `/`) dans les descriptions extraites
+
+### Fixed
+- Correction du parsing des descriptions pour éviter d'inclure les caractères de fin de commentaire PHPDoc
+
 ## [0.14.0] - 2026-01-18
 
 ### Added

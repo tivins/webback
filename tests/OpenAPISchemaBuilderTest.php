@@ -193,13 +193,63 @@ class OpenAPISchemaBuilderTest extends TestCase
     {
         $schema = $this->builder->buildFromMappable(TestUserWithDocs::class, [
             'useRef' => false,
-            'includeDescriptions' => true,
         ]);
 
+        // Les descriptions sont toujours incluses maintenant (Phase 3)
         self::assertArrayHasKey('description', $schema);
         self::assertEquals('Un utilisateur de test.', $schema['description']);
         self::assertArrayHasKey('description', $schema['properties']['id']);
         self::assertEquals("L'identifiant unique", $schema['properties']['id']['description']);
+    }
+
+    public function testBuildFromMappableWithVarDescriptions(): void
+    {
+        $schema = $this->builder->buildFromMappable(TestUserWithVar::class, [
+            'useRef' => false,
+        ]);
+
+        // @var sur les propriétés individuelles a priorité sur @property
+        self::assertArrayHasKey('description', $schema['properties']['id']);
+        self::assertEquals('Identifiant unique de l\'utilisateur', $schema['properties']['id']['description']);
+        self::assertArrayHasKey('description', $schema['properties']['email']);
+        self::assertEquals('Adresse email valide', $schema['properties']['email']['description']);
+    }
+
+    public function testBuildFromMappableWithMultilinePropertyDescriptions(): void
+    {
+        $schema = $this->builder->buildFromMappable(TestUserMultilineDocs::class, [
+            'useRef' => false,
+        ]);
+
+        // Les descriptions multi-lignes doivent être concaténées
+        self::assertArrayHasKey('description', $schema['properties']['name']);
+        self::assertStringContainsString('nom complet', $schema['properties']['name']['description']);
+        self::assertStringContainsString('utilisateur', $schema['properties']['name']['description']);
+    }
+
+    public function testBuildFromMappableWithPropertyReadWrite(): void
+    {
+        $schema = $this->builder->buildFromMappable(TestUserPropertyReadWrite::class, [
+            'useRef' => false,
+        ]);
+
+        // @property-read et @property-write doivent être parsés
+        self::assertArrayHasKey('description', $schema['properties']['readonly']);
+        self::assertEquals('Propriété en lecture seule', $schema['properties']['readonly']['description']);
+        self::assertArrayHasKey('description', $schema['properties']['writeonly']);
+        self::assertEquals('Propriété en écriture seule', $schema['properties']['writeonly']['description']);
+    }
+
+    public function testBuildFromMappableDescriptionsAlwaysIncluded(): void
+    {
+        // Sans includeDescriptions, les descriptions doivent quand même être incluses (Phase 3)
+        $schema = $this->builder->buildFromMappable(TestUserWithDocs::class, [
+            'useRef' => false,
+            // Pas de includeDescriptions
+        ]);
+
+        self::assertArrayHasKey('description', $schema);
+        self::assertArrayHasKey('description', $schema['properties']['id']);
     }
 
     public function testBuildFromMappableThrowsOnInvalidClass(): void
@@ -289,4 +339,41 @@ class TestUserWithDocs extends Mappable
 {
     public int $id;
     public string $name;
+}
+
+/**
+ * Utilisateur avec descriptions @var sur les propriétés.
+ */
+class TestUserWithVar extends Mappable
+{
+    /** @var int Identifiant unique de l'utilisateur */
+    public int $id;
+    
+    /** @var string Adresse email valide */
+    public string $email;
+}
+
+/**
+ * Utilisateur avec descriptions multi-lignes.
+ * 
+ * @property string $name Le nom complet
+ * de l'utilisateur avec plusieurs lignes
+ * pour tester le parsing multi-ligne
+ */
+class TestUserMultilineDocs extends Mappable
+{
+    public int $id;
+    public string $name;
+}
+
+/**
+ * Utilisateur avec @property-read et @property-write.
+ * 
+ * @property-read int $readonly Propriété en lecture seule
+ * @property-write string $writeonly Propriété en écriture seule
+ */
+class TestUserPropertyReadWrite extends Mappable
+{
+    public int $readonly;
+    public string $writeonly;
 }

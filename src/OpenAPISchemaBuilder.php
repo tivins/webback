@@ -174,6 +174,13 @@ class OpenAPISchemaBuilder
             $reflectionProperty = $reflectionClass->getProperty($propertyName);
             $propertyTypeInfo = $reflectionProperty->getType();
 
+            // Extraire la description depuis @var de la propriété individuelle
+            $propertyDocComment = $reflectionProperty->getDocComment() ?: '';
+            $varDescription = $this->extractVarDescription($propertyDocComment);
+            
+            // Priorité : @var de la propriété > @property de la classe
+            $description = $varDescription ?? $propertyDescriptions[$propertyName] ?? null;
+
             // Gérer les types union avec oneOf
             if ($propertyTypeInfo instanceof ReflectionUnionType) {
                 $types = [];
@@ -190,9 +197,9 @@ class OpenAPISchemaBuilder
                 $properties[$propertyName] = ['type' => 'object'];
             }
 
-            // Ajouter la description si disponible
-            if (isset($propertyDescriptions[$propertyName])) {
-                $properties[$propertyName]['description'] = $propertyDescriptions[$propertyName];
+            // Ajouter la description si disponible (toujours inclure les descriptions)
+            if ($description !== null) {
+                $properties[$propertyName]['description'] = $description;
             }
 
             // Déterminer si la propriété est requise (pas nullable et pas de valeur par défaut)
@@ -212,12 +219,10 @@ class OpenAPISchemaBuilder
             $schema['required'] = $required;
         }
 
-        // Ajouter la description de la classe si demandé
-        if (!empty($options['includeDescriptions'])) {
-            $classDescription = $this->extractClassDescription($docComment);
-            if ($classDescription) {
-                $schema['description'] = $classDescription;
-            }
+        // Ajouter la description de la classe (toujours inclure)
+        $classDescription = $this->extractClassDescription($docComment);
+        if ($classDescription) {
+            $schema['description'] = $classDescription;
         }
 
         // Enregistrer dans le cache et dans components/schemas
@@ -287,12 +292,16 @@ class OpenAPISchemaBuilder
     }
 
     /**
-     * Extrait les descriptions des propriétés depuis le PHPDoc.
+     * Extrait les descriptions des propriétés depuis le PHPDoc de la classe.
      *
      * Parse les annotations @property dans le PHPDoc de la classe.
-     * Format attendu : @property type $name Description
+     * Formats supportés :
+     * - @property type $name Description
+     * - @property type $name Description multi-ligne
+     * - @property-read type $name Description
+     * - @property-write type $name Description
      *
-     * @param string $docComment Le commentaire PHPDoc
+     * @param string $docComment Le commentaire PHPDoc de la classe
      * @return array<string, string> Tableau [nom_propriété => description]
      */
     private function extractPropertyDescriptions(string $docComment): array
@@ -304,15 +313,142 @@ class OpenAPISchemaBuilder
 
         $descriptions = [];
 
-        // Parser @property type $name description
-        if (preg_match_all('/@property\s+\S+\s+\$(\w+)\s+(.+)/', $docComment, $matches, PREG_SET_ORDER)) {
-            foreach ($matches as $match) {
-                $descriptions[$match[1]] = trim($match[2]);
+        // Parser @property, @property-read, @property-write
+        // Format: @property[-(read|write)] type $name Description (peut être multi-ligne)
+        $lines = explode("\n", $docComment);
+        $currentProperty = null;
+        $currentDescription = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            // Ignorer les lignes de fin de commentaire
+            if ($line === '*/' || $line === '/') {
+                break;
             }
+            
+            // Enlever les balises de commentaire
+            $line = preg_replace('/^\s*\*\s*/', '', $line);
+            
+            // Détecter une nouvelle annotation @property
+            if (preg_match('/@property(?:-(?:read|write))?\s+(\S+)\s+\$(\w+)(?:\s+(.+))?$/', $line, $matches)) {
+                // Sauvegarder la propriété précédente si elle existe
+                if ($currentProperty !== null && !empty($currentDescription)) {
+                    $desc = trim(implode(' ', $currentDescription));
+                    // Nettoyer les caractères de fin de commentaire
+                    $desc = rtrim($desc, '*/');
+                    $desc = rtrim($desc, '/');
+                    $descriptions[$currentProperty] = trim($desc);
+                }
+                
+                // Nouvelle propriété
+                $currentProperty = $matches[2];
+                $currentDescription = [];
+                if (isset($matches[3]) && !empty(trim($matches[3]))) {
+                    $desc = trim($matches[3]);
+                    // Nettoyer les caractères de fin de commentaire
+                    $desc = rtrim($desc, '*/');
+                    $desc = rtrim($desc, '/');
+                    $desc = trim($desc);
+                    if (!empty($desc)) {
+                        $currentDescription[] = $desc;
+                    }
+                }
+            } elseif ($currentProperty !== null) {
+                // Ligne de continuation pour la description
+                if (!empty($line) && !str_starts_with($line, '@')) {
+                    // Nettoyer les caractères de fin de commentaire
+                    $desc = trim($line);
+                    $desc = rtrim($desc, '*/');
+                    $desc = rtrim($desc, '/');
+                    $desc = trim($desc);
+                    if (!empty($desc)) {
+                        $currentDescription[] = $desc;
+                    }
+                } elseif (str_starts_with($line, '@')) {
+                    // Nouvelle annotation, terminer la description précédente
+                    if (!empty($currentDescription)) {
+                        $desc = trim(implode(' ', $currentDescription));
+                        // Nettoyer les caractères de fin de commentaire
+                        $desc = rtrim($desc, '*/');
+                        $desc = rtrim($desc, '/');
+                        $descriptions[$currentProperty] = trim($desc);
+                    }
+                    $currentProperty = null;
+                    $currentDescription = [];
+                }
+            }
+        }
+
+        // Sauvegarder la dernière propriété
+        if ($currentProperty !== null && !empty($currentDescription)) {
+            $desc = trim(implode(' ', $currentDescription));
+            // Nettoyer les caractères de fin de commentaire
+            $desc = rtrim($desc, '*/');
+            $desc = rtrim($desc, '/');
+            $descriptions[$currentProperty] = trim($desc);
         }
 
         $cache[$docComment] = $descriptions;
         return $descriptions;
+    }
+
+    /**
+     * Extrait la description depuis l'annotation @var d'une propriété.
+     *
+     * Parse l'annotation @var dans le PHPDoc d'une propriété individuelle.
+     * Formats supportés :
+     * - @var type Description
+     * - @var type Description multi-ligne
+     *
+     * @param string $docComment Le commentaire PHPDoc de la propriété
+     * @return string|null La description ou null si non trouvée
+     */
+    private function extractVarDescription(string $docComment): ?string
+    {
+        if (empty($docComment)) {
+            return null;
+        }
+
+        $lines = explode("\n", $docComment);
+        $description = [];
+
+        foreach ($lines as $line) {
+            $line = trim($line);
+            // Enlever les balises de commentaire
+            $line = preg_replace('/^\s*\*\s*/', '', $line);
+            
+            // Ignorer les lignes de fin de commentaire
+            if ($line === '*/' || $line === '/') {
+                break;
+            }
+            
+            // Détecter @var
+            if (preg_match('/@var\s+\S+\s+(.+)$/', $line, $matches)) {
+                $desc = trim($matches[1]);
+                // Nettoyer les caractères de fin de commentaire
+                $desc = rtrim($desc, '*/');
+                $desc = rtrim($desc, '/');
+                $desc = trim($desc);
+                if (!empty($desc)) {
+                    $description[] = $desc;
+                }
+            } elseif (!empty($description) && !empty($line) && !str_starts_with($line, '@')) {
+                // Ligne de continuation pour la description
+                $desc = trim($line);
+                // Nettoyer les caractères de fin de commentaire
+                $desc = rtrim($desc, '*/');
+                $desc = rtrim($desc, '/');
+                $desc = trim($desc);
+                if (!empty($desc)) {
+                    $description[] = $desc;
+                }
+            } elseif (str_starts_with($line, '@') && !str_starts_with($line, '@var')) {
+                // Autre annotation, arrêter
+                break;
+            }
+        }
+
+        return !empty($description) ? trim(implode(' ', $description)) : null;
     }
 
     /**
