@@ -1,6 +1,7 @@
 /.idea/
+/.cursor/
 /vendor/
 /.tmp/
 .env
 project/internal/
-_.git/
+project/readme.tpl.md

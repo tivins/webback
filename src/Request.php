@@ -47,7 +47,7 @@ readonly class Request
             path: $_SERVER['REQUEST_URI'] ?? '/',
             body: json_decode(file_get_contents("php://input")),
             bearerToken: str_replace('Bearer ', '', $headers['Authorization'] ?? $headers['authorization'] ?? ''),
-            accept: ContentType::tryFrom(substr($accept, 0, strpos($accept, ','))) ?? ContentType::JSON,
+            accept: ContentType::tryFrom(substr($accept, 0, strpos($accept, ',') ?: null)) ?? ContentType::JSON,
             requestTime: DateTime::createFromFormat('U', (string) ($_SERVER['REQUEST_TIME'] ?? time())),
         );
     }
