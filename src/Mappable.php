@@ -44,7 +44,24 @@ class Mappable implements JsonSerializable
                 $refClass = new ReflectionClass($class);
                 $properties = $refClass->getProperties();
                 foreach ($properties as $property) {
-                    $reflection[$class][$property->getName()] = $property->getType()->getName();
+                    $type = $property->getType();
+                    if ($type === null) {
+                        continue;
+                    }
+                    
+                    // Gérer les types union (int|string, etc.)
+                    if ($type instanceof \ReflectionUnionType) {
+                        $typeNames = [];
+                        foreach ($type->getTypes() as $unionType) {
+                            if ($unionType instanceof \ReflectionNamedType) {
+                                $typeNames[] = $unionType->getName();
+                            }
+                        }
+                        // Représenter les types union comme "int|string"
+                        $reflection[$class][$property->getName()] = implode('|', $typeNames);
+                    } elseif ($type instanceof \ReflectionNamedType) {
+                        $reflection[$class][$property->getName()] = $type->getName();
+                    }
                 }
                 // var_dump("REFLECTION ANALYSIS = ", $reflection);
             } catch (ReflectionException) {

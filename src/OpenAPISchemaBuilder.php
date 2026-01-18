@@ -184,12 +184,32 @@ class OpenAPISchemaBuilder
             // Gérer les types union avec oneOf
             if ($propertyTypeInfo instanceof ReflectionUnionType) {
                 $types = [];
+                $hasNull = false;
                 foreach ($propertyTypeInfo->getTypes() as $type) {
                     if ($type instanceof ReflectionNamedType) {
-                        $types[] = $this->buildFromTypeName($type->getName());
+                        if ($type->getName() === 'null') {
+                            $hasNull = true;
+                        } else {
+                            $types[] = $this->buildFromTypeName($type->getName());
+                        }
                     }
                 }
-                $properties[$propertyName] = ['oneOf' => $types];
+                
+                // Si on a un seul type non-null + null, utiliser nullable au lieu de oneOf
+                if ($hasNull && count($types) === 1) {
+                    $properties[$propertyName] = $types[0];
+                    $properties[$propertyName]['nullable'] = true;
+                } elseif (count($types) > 0) {
+                    // Sinon, utiliser oneOf
+                    $properties[$propertyName] = ['oneOf' => $types];
+                    if ($hasNull) {
+                        // Ajouter null comme option dans oneOf
+                        $properties[$propertyName]['oneOf'][] = ['type' => 'null'];
+                    }
+                } else {
+                    // Seulement null
+                    $properties[$propertyName] = ['type' => 'null'];
+                }
             } elseif ($propertyTypeInfo instanceof ReflectionNamedType) {
                 $properties[$propertyName] = $this->buildFromTypeName($propertyTypeInfo->getName());
             } else {

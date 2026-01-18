@@ -5,6 +5,26 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.16.0] - 2026-01-18
+
+### Added
+- **Support complet des types complexes** (Phase 4) :
+  - Support des types union (`int|string`) avec génération de schémas `oneOf` dans OpenAPI
+  - Support des types nullable (`int|null`) avec `nullable: true` dans OpenAPI
+  - Amélioration de `Mappable::reflection()` pour supporter les types union (retourne `"int|string"` au lieu de lever une erreur)
+  - Tests complets pour les objets imbriqués (Article avec User, etc.)
+  - Tests pour la détection et gestion des cycles dans les objets imbriqués
+  - Tests pour les types union avec différents cas (union simple, union avec null)
+- 7 nouveaux tests ajoutés pour valider les types complexes (163 tests au total, 469 assertions)
+
+### Changed
+- `Mappable::reflection()` supporte maintenant les types union et retourne une représentation string (`"int|string"`)
+- `OpenAPISchemaBuilder` gère mieux les types union avec null : utilise `nullable: true` pour les unions simples avec null, `oneOf` pour les unions complexes
+- Amélioration de la gestion des cycles : les références circulaires sont détectées et gérées avec des références `$ref`
+
+### Fixed
+- Correction de `Mappable::reflection()` qui levait une erreur sur les propriétés avec types union
+
 ## [0.15.0] - 2026-01-18
 
 ### Added
