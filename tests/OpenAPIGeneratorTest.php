@@ -435,9 +435,12 @@ class OpenAPIGeneratorTest extends TestCase
         self::assertArrayHasKey('$ref', $schema200);
         self::assertEquals('#/components/schemas/TestArticleMappable', $schema200['$ref']);
 
-        // 404 -> object
+        // 404 -> schéma d'erreur standard (car 'object' pour un code d'erreur)
         $schema404 = $operation['responses']['404']['content']['application/json']['schema'];
-        self::assertEquals(['type' => 'object'], $schema404);
+        self::assertEquals('object', $schema404['type']);
+        self::assertArrayHasKey('properties', $schema404);
+        self::assertArrayHasKey('error', $schema404['properties']);
+        self::assertArrayHasKey('messages', $schema404['properties']);
     }
 
     public function testReturnTypeMappableWithDateTimeProperty(): void
@@ -486,6 +489,133 @@ class OpenAPIGeneratorTest extends TestCase
         self::assertArrayHasKey('components', $spec);
         self::assertCount(1, $spec['components']['schemas']);
         self::assertArrayHasKey('TestUserMappable', $spec['components']['schemas']);
+    }
+
+    // === Tests Phase 5 : Réponses multiples ===
+
+    public function testMultipleResponseCodesWithDifferentSchemas(): void
+    {
+        $api = new API();
+        $api->post('/users', [RouteAttributeMultipleResponseCodesHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/users']['post'];
+
+        // Vérifier que tous les codes sont présents
+        self::assertArrayHasKey('201', $operation['responses']);
+        self::assertArrayHasKey('400', $operation['responses']);
+        self::assertArrayHasKey('422', $operation['responses']);
+        self::assertArrayHasKey('500', $operation['responses']);
+
+        // 201 -> TestUserMappable
+        $schema201 = $operation['responses']['201']['content']['application/json']['schema'];
+        self::assertArrayHasKey('$ref', $schema201);
+        self::assertEquals('#/components/schemas/TestUserMappable', $schema201['$ref']);
+        self::assertEquals('Created', $operation['responses']['201']['description']);
+
+        // 400 -> object (schéma d'erreur)
+        $schema400 = $operation['responses']['400']['content']['application/json']['schema'];
+        self::assertEquals('object', $schema400['type']);
+        self::assertEquals('Bad Request', $operation['responses']['400']['description']);
+
+        // 422 -> object (schéma d'erreur)
+        $schema422 = $operation['responses']['422']['content']['application/json']['schema'];
+        self::assertEquals('object', $schema422['type']);
+        self::assertEquals('Unprocessable Entity', $operation['responses']['422']['description']);
+
+        // 500 doit être ajouté automatiquement avec schéma d'erreur
+        $schema500 = $operation['responses']['500']['content']['application/json']['schema'];
+        self::assertEquals('object', $schema500['type']);
+        self::assertArrayHasKey('properties', $schema500);
+        self::assertArrayHasKey('error', $schema500['properties']);
+        self::assertEquals('Internal Server Error', $operation['responses']['500']['description']);
+    }
+
+    public function testStandardHttpCodeDescriptions(): void
+    {
+        $api = new API();
+        $api->get('/test', [RouteAttributeStandardCodesHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/test']['get'];
+        $responses = $operation['responses'];
+
+        // Vérifier les descriptions standard pour différents codes
+        self::assertEquals('Success', $responses['200']['description']);
+        self::assertEquals('Created', $responses['201']['description']);
+        self::assertEquals('Accepted', $responses['202']['description']);
+        self::assertEquals('No Content', $responses['204']['description']);
+        self::assertEquals('Bad Request', $responses['400']['description']);
+        self::assertEquals('Unauthorized', $responses['401']['description']);
+        self::assertEquals('Forbidden', $responses['403']['description']);
+        self::assertEquals('Not Found', $responses['404']['description']);
+        self::assertEquals('Unprocessable Entity', $responses['422']['description']);
+        self::assertEquals('Too Many Requests', $responses['429']['description']);
+        self::assertEquals('Internal Server Error', $responses['500']['description']);
+        self::assertEquals('Service Unavailable', $responses['503']['description']);
+    }
+
+    public function testErrorSchemaStructure(): void
+    {
+        $api = new API();
+        $api->get('/test', [RouteAttributeErrorSchemaHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/test']['get'];
+        $schema500 = $operation['responses']['500']['content']['application/json']['schema'];
+
+        // Vérifier la structure du schéma d'erreur standard
+        self::assertEquals('object', $schema500['type']);
+        self::assertArrayHasKey('properties', $schema500);
+        self::assertArrayHasKey('error', $schema500['properties']);
+        self::assertEquals('string', $schema500['properties']['error']['type']);
+        self::assertArrayHasKey('messages', $schema500['properties']);
+        self::assertEquals('array', $schema500['properties']['messages']['type']);
+        self::assertArrayHasKey('items', $schema500['properties']['messages']);
+        self::assertArrayHasKey('properties', $schema500['properties']['messages']['items']);
+        self::assertArrayHasKey('field', $schema500['properties']['messages']['items']['properties']);
+        self::assertArrayHasKey('message', $schema500['properties']['messages']['items']['properties']);
+    }
+
+    public function testMultipleResponseCodesWithArrayTypes(): void
+    {
+        $api = new API();
+        $api->get('/users', [RouteAttributeMultipleResponseCodesWithArrayHandler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/users']['get'];
+
+        // 200 -> array de TestUserMappable
+        $schema200 = $operation['responses']['200']['content']['application/json']['schema'];
+        self::assertEquals('array', $schema200['type']);
+        self::assertArrayHasKey('items', $schema200);
+        self::assertArrayHasKey('$ref', $schema200['items']);
+        self::assertEquals('#/components/schemas/TestUserMappable', $schema200['items']['$ref']);
+
+        // 204 -> No Content (pas de schéma de contenu)
+        self::assertArrayHasKey('204', $operation['responses']);
+        self::assertEquals('No Content', $operation['responses']['204']['description']);
+    }
+
+    public function testDefaultErrorResponseAlwaysAdded(): void
+    {
+        $api = new API();
+        $api->get('/test', [RouteAttributeWithout500Handler::class, 'handle']);
+
+        $spec = $api->generateOpenAPISpec();
+
+        $operation = $spec['paths']['/test']['get'];
+
+        // 500 doit être ajouté automatiquement même si non défini dans le mapping
+        self::assertArrayHasKey('500', $operation['responses']);
+        self::assertEquals('Internal Server Error', $operation['responses']['500']['description']);
+        self::assertArrayHasKey('content', $operation['responses']['500']);
+        self::assertArrayHasKey('application/json', $operation['responses']['500']['content']);
+        self::assertArrayHasKey('schema', $operation['responses']['500']['content']['application/json']);
     }
 }
 
@@ -710,6 +840,111 @@ class RouteAttributeWithMappedReturnTypeHandler
         name: 'Get article',
         description: 'Retrieves an article by ID',
         returnType: ['200' => TestArticleMappable::class, '404' => 'object']
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+// === Handlers pour les tests Phase 5 : Réponses multiples ===
+
+/**
+ * Handler avec plusieurs codes de réponse et schémas différents.
+ */
+class RouteAttributeMultipleResponseCodesHandler
+{
+    #[RouteAttribute(
+        name: 'Create user',
+        description: 'Creates a new user',
+        returnType: [
+            '201' => TestUserMappable::class,
+            '400' => 'object',
+            '422' => 'object',
+        ]
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(201);
+    }
+}
+
+/**
+ * Handler avec plusieurs codes HTTP standards pour tester les descriptions.
+ */
+class RouteAttributeStandardCodesHandler
+{
+    #[RouteAttribute(
+        name: 'Test standard codes',
+        description: 'Tests standard HTTP code descriptions',
+        returnType: [
+            '200' => 'object',
+            '201' => 'object',
+            '202' => 'object',
+            '204' => 'object',
+            '400' => 'object',
+            '401' => 'object',
+            '403' => 'object',
+            '404' => 'object',
+            '422' => 'object',
+            '429' => 'object',
+            '500' => 'object',
+            '503' => 'object',
+        ]
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler pour tester la structure du schéma d'erreur.
+ */
+class RouteAttributeErrorSchemaHandler
+{
+    #[RouteAttribute(
+        name: 'Test error schema',
+        description: 'Tests error schema structure',
+        returnType: ['500' => 'object']
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(500);
+    }
+}
+
+/**
+ * Handler avec plusieurs codes de réponse incluant des tableaux.
+ */
+class RouteAttributeMultipleResponseCodesWithArrayHandler
+{
+    #[RouteAttribute(
+        name: 'List users',
+        description: 'Lists all users',
+        returnType: [
+            '200' => TestUserMappable::class . '[]',
+            '204' => 'object',
+        ]
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200);
+    }
+}
+
+/**
+ * Handler sans code 500 dans le mapping pour tester l'ajout automatique.
+ */
+class RouteAttributeWithout500Handler
+{
+    #[RouteAttribute(
+        name: 'Test without 500',
+        description: 'Tests automatic 500 addition',
+        returnType: [
+            '200' => 'object',
+            '404' => 'object',
+        ]
     )]
     public static function handle(Request $request, array $matches): HTTPResponse
     {

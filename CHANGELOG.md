@@ -5,6 +5,28 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.17.0] - 2026-01-18
+
+### Added
+- **Support complet des réponses multiples par code HTTP** (Phase 5) :
+  - Support étendu des codes HTTP standards avec descriptions automatiques (200, 201, 202, 204, 400, 401, 403, 404, 405, 409, 422, 429, 500, 502, 503, 504)
+  - Schémas d'erreur standard automatiques pour les codes 4xx et 5xx lorsque le type est `'object'`
+  - Structure d'erreur standard avec propriétés `error` (string) et `messages` (array) pour la validation
+  - Ajout automatique de la réponse 500 avec schéma d'erreur si non défini dans le mapping
+  - Nouvelle méthode `getStandardHttpDescription()` pour obtenir les descriptions standard des codes HTTP
+  - Nouvelle méthode `getStandardErrorSchema()` pour générer le schéma d'erreur standard
+  - Nouvelle méthode `isErrorCode()` pour détecter les codes d'erreur (4xx, 5xx)
+- 5 nouveaux tests complets pour valider les réponses multiples (168 tests au total, 520 assertions)
+
+### Changed
+- `buildResponsesFromMapping()` utilise maintenant le schéma d'erreur standard pour les codes d'erreur (4xx, 5xx) lorsque le type est `'object'`
+- `getDefaultResponses()` utilise maintenant `getStandardHttpDescription()` pour toutes les descriptions de codes HTTP
+- Les réponses 404 et 500 par défaut utilisent maintenant le schéma d'erreur standard au lieu d'un simple `object`
+- Amélioration de la cohérence : toutes les descriptions de codes HTTP utilisent maintenant les descriptions standard
+
+### Fixed
+- Correction de la génération des schémas pour les codes d'erreur : utilisation du schéma d'erreur standard au lieu d'un simple `object`
+
 ## [0.16.0] - 2026-01-18
 
 ### Added

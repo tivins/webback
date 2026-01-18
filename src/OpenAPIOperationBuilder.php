@@ -108,6 +108,9 @@ class OpenAPIOperationBuilder
     /**
      * Retourne les réponses par défaut selon la méthode HTTP.
      *
+     * Si `returnType` est un tableau (mapping code => type), utilise `buildResponsesFromMapping()`.
+     * Sinon, génère des réponses par défaut avec le schéma spécifié pour 200 (et 201 pour POST/PUT).
+     *
      * @param string $method La méthode HTTP
      * @param ContentType|null $contentType Le type de contenu (null = application/json)
      * @param string|array|null $returnType Le type de retour pour générer le schéma
@@ -125,10 +128,11 @@ class OpenAPIOperationBuilder
         }
 
         $schema = $this->getSchemaForContentType($contentType, $returnType);
+        $errorSchema = $this->getStandardErrorSchema();
 
         $responses = [
             '200' => [
-                'description' => 'Success',
+                'description' => $this->getStandardHttpDescription('200'),
                 'content' => [
                     $mimeType => [
                         'schema' => $schema,
@@ -136,30 +140,27 @@ class OpenAPIOperationBuilder
                 ],
             ],
             '404' => [
-                'description' => 'Not Found',
+                'description' => $this->getStandardHttpDescription('404'),
                 'content' => [
                     'application/json' => [
-                        'schema' => [
-                            'type' => 'object',
-                            'properties' => [
-                                'messages' => [
-                                    'type' => 'array',
-                                    'items' => ['type' => 'object'],
-                                ],
-                            ],
-                        ],
+                        'schema' => $errorSchema,
                     ],
                 ],
             ],
             '500' => [
-                'description' => 'Internal Server Error',
+                'description' => $this->getStandardHttpDescription('500'),
+                'content' => [
+                    'application/json' => [
+                        'schema' => $errorSchema,
+                    ],
+                ],
             ],
         ];
 
         // Pour POST/PUT, ajouter 201 Created
         if (in_array($method, ['POST', 'PUT'], true)) {
             $responses['201'] = [
-                'description' => 'Created',
+                'description' => $this->getStandardHttpDescription('201'),
                 'content' => [
                     $mimeType => [
                         'schema' => $schema,
@@ -174,6 +175,10 @@ class OpenAPIOperationBuilder
     /**
      * Construit les réponses depuis un mapping code HTTP => type.
      *
+     * Cette méthode génère des réponses OpenAPI avec des schémas différents selon
+     * le code HTTP. Elle inclut automatiquement des descriptions standard pour les
+     * codes HTTP courants et des schémas d'erreur par défaut pour les codes d'erreur.
+     *
      * @param array $mapping Le mapping code => type (ex: ['200' => 'User', '404' => 'Error'])
      * @param string $mimeType Le type MIME à utiliser
      * @return array Les réponses OpenAPI
@@ -181,36 +186,143 @@ class OpenAPIOperationBuilder
     private function buildResponsesFromMapping(array $mapping, string $mimeType): array
     {
         $responses = [];
+        $errorSchema = $this->getStandardErrorSchema();
 
         foreach ($mapping as $code => $type) {
-            $description = match ((string)$code) {
-                '200' => 'Success',
-                '201' => 'Created',
-                '204' => 'No Content',
-                '400' => 'Bad Request',
-                '401' => 'Unauthorized',
-                '403' => 'Forbidden',
-                '404' => 'Not Found',
-                '500' => 'Internal Server Error',
-                default => 'Response',
-            };
+            $codeStr = (string)$code;
+            $description = $this->getStandardHttpDescription($codeStr);
 
-            $responses[(string)$code] = [
+            // Pour les codes d'erreur (4xx, 5xx) avec type 'object', utiliser le schéma d'erreur standard
+            $isErrorCode = $this->isErrorCode($codeStr);
+            if ($isErrorCode && $type === 'object') {
+                $schema = $errorSchema;
+            } else {
+                // Construire le schéma depuis le type spécifié
+                $schema = $this->buildSchemaFromReturnType($type);
+            }
+
+            $responses[$codeStr] = [
                 'description' => $description,
                 'content' => [
                     $mimeType => [
-                        'schema' => $this->buildSchemaFromReturnType($type),
+                        'schema' => $schema,
                     ],
                 ],
             ];
         }
 
-        // Ajouter les réponses par défaut si non définies
-        if (!isset($responses['500'])) {
-            $responses['500'] = ['description' => 'Internal Server Error'];
-        }
+        // Ajouter les réponses par défaut pour les codes d'erreur standards si non définies
+        $this->addDefaultErrorResponses($responses, $mimeType);
 
         return $responses;
+    }
+
+    /**
+     * Vérifie si un code HTTP est un code d'erreur (4xx ou 5xx).
+     *
+     * @param string $code Le code HTTP
+     * @return bool True si c'est un code d'erreur
+     */
+    private function isErrorCode(string $code): bool
+    {
+        $codeInt = (int)$code;
+        return ($codeInt >= 400 && $codeInt < 600);
+    }
+
+    /**
+     * Retourne le schéma d'erreur standard pour les codes 4xx et 5xx.
+     *
+     * @return array Le schéma d'erreur OpenAPI
+     */
+    private function getStandardErrorSchema(): array
+    {
+        return [
+            'type' => 'object',
+            'properties' => [
+                'error' => [
+                    'type' => 'string',
+                    'description' => 'Message d\'erreur',
+                ],
+                'messages' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'field' => [
+                                'type' => 'string',
+                                'description' => 'Nom du champ en erreur',
+                            ],
+                            'message' => [
+                                'type' => 'string',
+                                'description' => 'Message d\'erreur pour ce champ',
+                            ],
+                        ],
+                    ],
+                    'description' => 'Liste des erreurs de validation par champ',
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Retourne la description standard pour un code HTTP.
+     *
+     * @param string $code Le code HTTP (ex: '200', '404')
+     * @return string La description standard
+     */
+    private function getStandardHttpDescription(string $code): string
+    {
+        return match ($code) {
+            // Codes de succès (2xx)
+            '200' => 'Success',
+            '201' => 'Created',
+            '202' => 'Accepted',
+            '204' => 'No Content',
+            // Codes d'erreur client (4xx)
+            '400' => 'Bad Request',
+            '401' => 'Unauthorized',
+            '403' => 'Forbidden',
+            '404' => 'Not Found',
+            '405' => 'Method Not Allowed',
+            '409' => 'Conflict',
+            '422' => 'Unprocessable Entity',
+            '429' => 'Too Many Requests',
+            // Codes d'erreur serveur (5xx)
+            '500' => 'Internal Server Error',
+            '502' => 'Bad Gateway',
+            '503' => 'Service Unavailable',
+            '504' => 'Gateway Timeout',
+            default => 'Response',
+        };
+    }
+
+    /**
+     * Ajoute les réponses d'erreur par défaut si elles ne sont pas déjà définies.
+     *
+     * Ajoute automatiquement des schémas d'erreur standards pour les codes 500, 400, 401, 403, 422, 429
+     * si ces codes ne sont pas déjà présents dans le mapping.
+     *
+     * @param array $responses Les réponses déjà construites (modifié par référence)
+     * @param string $mimeType Le type MIME à utiliser
+     */
+    private function addDefaultErrorResponses(array &$responses, string $mimeType): void
+    {
+        $errorSchema = $this->getStandardErrorSchema();
+
+        // Ajouter 500 si non défini (toujours présent)
+        if (!isset($responses['500'])) {
+            $responses['500'] = [
+                'description' => $this->getStandardHttpDescription('500'),
+                'content' => [
+                    $mimeType => [
+                        'schema' => $errorSchema,
+                    ],
+                ],
+            ];
+        }
+
+        // Pour les autres codes d'erreur standards, on ne les ajoute pas automatiquement
+        // car ils doivent être explicitement définis dans le mapping si nécessaire
     }
 
     /**
