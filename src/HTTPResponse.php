@@ -33,7 +33,7 @@ readonly class HTTPResponse
     public function __construct(
         public int          $code = 200,
         public array|string $body = '',
-        public array        $messages = [],
+        public array|object $messages = [],
         public ContentType  $contentType = ContentType::JSON,
     )
     {
