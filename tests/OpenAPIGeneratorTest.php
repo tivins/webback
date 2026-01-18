@@ -63,6 +63,18 @@ class OpenAPIGeneratorTest extends TestCase
         self::assertArrayNotHasKey('/api/v1/users', $spec['paths']);
     }
 
+
+    public function testGenerateOpenAPISpecWithDottedPath(): void
+    {
+        $api = new API('/api/v1');
+        $api->get('/users.json', MockRoute::class);
+
+        $spec = $api->generateOpenAPISpec();
+
+        // Le chemin ne doit pas inclure le '.'
+        self::assertArrayHasKey('/users.json', $spec['paths']);
+    }
+
     public function testGroupMethodsByPath(): void
     {
         $api = new API();

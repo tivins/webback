@@ -12,7 +12,7 @@ class OpenAPIPathConverter
     /**
      * Noms de paramètres par défaut utilisés lors de la conversion.
      */
-    private const DEFAULT_PARAM_NAMES = ['id', 'param1', 'param2', 'param3', 'slug', 'query'];
+    private const array DEFAULT_PARAM_NAMES = ['id', 'param1', 'param2', 'param3', 'slug', 'query'];
 
     /**
      * Convertit un pattern regex en chemin OpenAPI avec paramètres.
@@ -43,7 +43,7 @@ class OpenAPIPathConverter
         foreach ($matches[0] as $index => $fullMatch) {
             $pattern = $matches[1][$index][0];
             $type = $this->inferOpenAPIType($pattern);
-            $paramName = self::DEFAULT_PARAM_NAMES[$paramIndex] ?? "param{$paramIndex}";
+            $paramName = self::DEFAULT_PARAM_NAMES[$paramIndex] ?? "param$paramIndex";
             $paramIndex++;
 
             $captures[] = [
@@ -117,12 +117,13 @@ class OpenAPIPathConverter
         }, $path);
 
         // Remplacer les caractères spéciaux regex par des caractères normaux
-        $path = preg_replace('/[.*+?^$()|[\]\\\]/', '', $path);
+        // Note: on préserve le point (.) car il est valide dans les chemins OpenAPI
+        $path = preg_replace('/[*+?^$()|[\]\\\]/', '', $path);
 
         // Restaurer les paramètres OpenAPI
         $path = preg_replace('/___OPENAPI_PARAM___([^_]+)___END___/', '{$1}', $path);
 
-        // S'assurer que le chemin commence par /
+        // S'assurer que le chemin commence par '/'
         if (!str_starts_with($path, '/')) {
             $path = '/' . $path;
         }

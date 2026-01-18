@@ -7,13 +7,14 @@ namespace Tivins\Webapp;
 /**
  * Génère une spécification OpenAPI 3.0.3 à partir des routes enregistrées.
  */
-class OpenAPIGenerator
+readonly class OpenAPIGenerator
 {
     public function __construct(
-        private OpenAPIPathConverter $pathConverter,
+        private OpenAPIPathConverter        $pathConverter,
         private ControllerMetadataExtractor $metadataExtractor,
-        private OpenAPIOperationBuilder $operationBuilder
-    ) {
+        private OpenAPIOperationBuilder     $operationBuilder
+    )
+    {
     }
 
     /**
