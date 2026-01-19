@@ -6,6 +6,7 @@ namespace Tivins\Webapp;
 
 use InvalidArgumentException;
 use ReflectionClass;
+use ReflectionEnum;
 use ReflectionNamedType;
 use ReflectionUnionType;
 
@@ -98,7 +99,8 @@ class OpenAPISchemaBuilder
      * Construit le schéma pour un type complexe (classe).
      *
      * Si la classe étend Mappable, génère récursivement le schéma avec une référence.
-     * Sinon, retourne un schéma object générique.
+     * Si c'est un enum, génère un schéma avec les valeurs possibles.
+     * Sinon, analyse les propriétés publiques via la réflexion pour générer un schéma détaillé.
      *
      * @param string $typeName Le nom complet de la classe
      * @param array $options Options de génération
@@ -109,6 +111,16 @@ class OpenAPISchemaBuilder
         // Si c'est un Mappable, générer le schéma avec référence
         if (class_exists($typeName) && is_subclass_of($typeName, Mappable::class)) {
             return $this->buildFromMappable($typeName, ['useRef' => true] + $options);
+        }
+
+        // Si c'est un enum, générer un schéma avec les valeurs possibles
+        if (enum_exists($typeName)) {
+            return $this->buildFromEnum($typeName);
+        }
+
+        // Si c'est une classe existante, analyser ses propriétés publiques
+        if (class_exists($typeName)) {
+            return $this->buildFromReflection($typeName, $options);
         }
 
         // Sinon, type object générique
@@ -240,6 +252,182 @@ class OpenAPISchemaBuilder
         }
 
         // Ajouter la description de la classe (toujours inclure)
+        $classDescription = $this->extractClassDescription($docComment);
+        if ($classDescription) {
+            $schema['description'] = $classDescription;
+        }
+
+        // Enregistrer dans le cache et dans components/schemas
+        self::$schemaCache[$className] = ['schema' => $schema, 'refName' => $schemaName];
+        $this->componentsSchemas[$schemaName] = $schema;
+
+        // Retirer de la liste des classes en cours de génération
+        $this->generatingClasses = array_diff($this->generatingClasses, [$className]);
+
+        // Retourner une référence ou le schéma complet selon l'option
+        if ($useRef) {
+            return ['$ref' => "#/components/schemas/$schemaName"];
+        }
+
+        return $schema;
+    }
+
+    /**
+     * Génère un schéma OpenAPI depuis un enum PHP.
+     *
+     * Pour les enums backed (avec type), génère un schéma avec les valeurs possibles.
+     * Pour les enums purs, génère un schéma string avec les noms des cases.
+     *
+     * @param string $enumName Le nom complet de l'enum
+     * @return array Le schéma OpenAPI
+     */
+    private function buildFromEnum(string $enumName): array
+    {
+        if (!enum_exists($enumName)) {
+            return ['type' => 'string'];
+        }
+
+        $reflectionEnum = new ReflectionEnum($enumName);
+        $cases = $reflectionEnum->getCases();
+        $values = [];
+
+        foreach ($cases as $case) {
+            // Pour les enums backed, utiliser la valeur
+            if ($reflectionEnum->isBacked()) {
+                $values[] = $case->getBackingValue();
+            } else {
+                // Pour les enums purs, utiliser le nom du case
+                $values[] = $case->getName();
+            }
+        }
+
+        $schema = [
+            'type' => $reflectionEnum->isBacked() && $reflectionEnum->getBackingType()?->getName() === 'int' ? 'integer' : 'string',
+            'enum' => $values,
+        ];
+
+        return $schema;
+    }
+
+    /**
+     * Génère un schéma OpenAPI depuis une classe via la réflexion PHP.
+     *
+     * Analyse les propriétés publiques de la classe pour générer un schéma détaillé.
+     * Cette méthode est utilisée pour les classes qui n'étendent pas Mappable.
+     *
+     * @param string $className Le nom complet de la classe
+     * @param array $options Options de génération :
+     *                       - useRef: bool (true) - utiliser $ref pour référencer le schéma
+     * @return array Le schéma OpenAPI ou une référence $ref
+     */
+    private function buildFromReflection(string $className, array $options = []): array
+    {
+        $useRef = $options['useRef'] ?? true;
+        $schemaName = $this->getSchemaName($className);
+
+        // Vérifier le cache
+        if (isset(self::$schemaCache[$className])) {
+            // S'assurer que le schéma est aussi dans componentsSchemas de cette instance
+            if (!isset($this->componentsSchemas[$schemaName])) {
+                $this->componentsSchemas[$schemaName] = self::$schemaCache[$className]['schema'];
+            }
+            if ($useRef) {
+                return ['$ref' => "#/components/schemas/$schemaName"];
+            }
+            return self::$schemaCache[$className]['schema'];
+        }
+
+        // Détecter les cycles (récursion infinie)
+        if (in_array($className, $this->generatingClasses, true)) {
+            // Si cycle détecté, retourner une référence
+            if ($useRef) {
+                return ['$ref' => "#/components/schemas/$schemaName"];
+            }
+            // Sinon, retourner un schéma object générique
+            return ['type' => 'object'];
+        }
+
+        // Marquer comme en cours de génération
+        $this->generatingClasses[] = $className;
+
+        $reflectionClass = new ReflectionClass($className);
+        $properties = [];
+        $required = [];
+
+        $docComment = $reflectionClass->getDocComment() ?: '';
+        $propertyDescriptions = $this->extractPropertyDescriptions($docComment);
+
+        // Analyser toutes les propriétés publiques
+        foreach ($reflectionClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $reflectionProperty) {
+            $propertyName = $reflectionProperty->getName();
+            $propertyTypeInfo = $reflectionProperty->getType();
+
+            // Extraire la description depuis @var de la propriété individuelle
+            $propertyDocComment = $reflectionProperty->getDocComment() ?: '';
+            $varDescription = $this->extractVarDescription($propertyDocComment);
+            
+            // Priorité : @var de la propriété > @property de la classe
+            $description = $varDescription ?? $propertyDescriptions[$propertyName] ?? null;
+
+            // Gérer les types union avec oneOf
+            if ($propertyTypeInfo instanceof ReflectionUnionType) {
+                $types = [];
+                $hasNull = false;
+                foreach ($propertyTypeInfo->getTypes() as $type) {
+                    if ($type instanceof ReflectionNamedType) {
+                        if ($type->getName() === 'null') {
+                            $hasNull = true;
+                        } else {
+                            $types[] = $this->buildFromTypeName($type->getName());
+                        }
+                    }
+                }
+                
+                // Si on a un seul type non-null + null, utiliser nullable au lieu de oneOf
+                if ($hasNull && count($types) === 1) {
+                    $properties[$propertyName] = $types[0];
+                    $properties[$propertyName]['nullable'] = true;
+                } elseif (count($types) > 0) {
+                    // Sinon, utiliser oneOf
+                    $properties[$propertyName] = ['oneOf' => $types];
+                    if ($hasNull) {
+                        // Ajouter null comme option dans oneOf
+                        $properties[$propertyName]['oneOf'][] = ['type' => 'null'];
+                    }
+                } else {
+                    // Seulement null
+                    $properties[$propertyName] = ['type' => 'null'];
+                }
+            } elseif ($propertyTypeInfo instanceof ReflectionNamedType) {
+                $properties[$propertyName] = $this->buildFromTypeName($propertyTypeInfo->getName());
+            } else {
+                // Type non typé ou autre
+                $properties[$propertyName] = ['type' => 'object'];
+            }
+
+            // Ajouter la description si disponible
+            if ($description !== null) {
+                $properties[$propertyName]['description'] = $description;
+            }
+
+            // Déterminer si la propriété est requise (pas nullable et pas de valeur par défaut)
+            if ($propertyTypeInfo !== null && !$propertyTypeInfo->allowsNull()) {
+                if (!$reflectionProperty->hasDefaultValue()) {
+                    $required[] = $propertyName;
+                }
+            }
+        }
+
+        $schema = [
+            'type' => 'object',
+            'properties' => $properties,
+        ];
+
+        if (!empty($required)) {
+            $schema['required'] = $required;
+        }
+
+        // Ajouter la description de la classe
         $classDescription = $this->extractClassDescription($docComment);
         if ($classDescription) {
             $schema['description'] = $classDescription;

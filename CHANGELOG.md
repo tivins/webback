@@ -16,6 +16,16 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   - Nouvelle méthode `getStandardHttpDescription()` pour obtenir les descriptions standard des codes HTTP
   - Nouvelle méthode `getStandardErrorSchema()` pour générer le schéma d'erreur standard
   - Nouvelle méthode `isErrorCode()` pour détecter les codes d'erreur (4xx, 5xx)
+- **Génération de schémas pour les classes non-Mappable** :
+  - `OpenAPISchemaBuilder` peut maintenant analyser les propriétés publiques des classes qui n'étendent pas `Mappable`
+  - Nouvelle méthode `buildFromReflection()` pour analyser les classes via la réflexion PHP
+  - Support des descriptions PHPDoc (@var et @property) pour les propriétés
+  - Support des types union et nullable
+- **Support des enums PHP dans les schémas OpenAPI** :
+  - Génération automatique de schémas pour les enums PHP 8.1+
+  - Support des enums backed (avec type string ou int) avec extraction des valeurs possibles
+  - Support des enums purs avec extraction des noms des cases
+  - Nouvelle méthode `buildFromEnum()` pour générer les schémas d'enums
 - 5 nouveaux tests complets pour valider les réponses multiples (168 tests au total, 520 assertions)
 
 ### Changed
@@ -23,6 +33,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 - `getDefaultResponses()` utilise maintenant `getStandardHttpDescription()` pour toutes les descriptions de codes HTTP
 - Les réponses 404 et 500 par défaut utilisent maintenant le schéma d'erreur standard au lieu d'un simple `object`
 - Amélioration de la cohérence : toutes les descriptions de codes HTTP utilisent maintenant les descriptions standard
+- `buildComplexType()` analyse maintenant les classes non-Mappable via la réflexion au lieu de retourner un simple `object`
 
 ### Fixed
 - Correction de la génération des schémas pour les codes d'erreur : utilisation du schéma d'erreur standard au lieu d'un simple `object`

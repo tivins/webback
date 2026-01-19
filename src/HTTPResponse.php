@@ -11,7 +11,7 @@ readonly class HTTPResponse
      *
      * @param int $code Le code de statut HTTP (200, 404, 500, etc.)
      * @param array|string|object|null $body Le corps de la réponse (tableau pour JSON, string pour autres types)
-     * @param array $messages Tableau de messages (erreurs, succès, etc.)
+     * @param Message[] $messages Tableau de messages (erreurs, succès, etc.)
      * @param ContentType $contentType Le type de contenu de la réponse
      *
      * @example
