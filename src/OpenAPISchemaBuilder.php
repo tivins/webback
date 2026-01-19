@@ -400,6 +400,10 @@ class OpenAPISchemaBuilder
                 }
             } elseif ($propertyTypeInfo instanceof ReflectionNamedType) {
                 $properties[$propertyName] = $this->buildFromTypeName($propertyTypeInfo->getName());
+                // Si le type est nullable, ajouter nullable: true
+                if ($propertyTypeInfo->allowsNull()) {
+                    $properties[$propertyName]['nullable'] = true;
+                }
             } else {
                 // Type non typé ou autre
                 $properties[$propertyName] = ['type' => 'object'];

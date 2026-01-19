@@ -423,6 +423,169 @@ class OpenAPISchemaBuilderTest extends TestCase
         // Note: Pour avoir des tableaux typés, il faudrait utiliser returnType: 'TestOrderItem[]'
         // dans RouteAttribute ou améliorer le parsing PHPDoc @var TestOrderItem[]
     }
+
+    // === Tests pour les classes non-Mappable ===
+
+    public function testBuildFromNonMappableClass(): void
+    {
+        $schema = $this->builder->buildFromTypeName(\Tivins\Webapp\Message::class);
+
+        // Doit retourner une référence vers le schéma dans components
+        self::assertArrayHasKey('$ref', $schema);
+        self::assertEquals('#/components/schemas/Message', $schema['$ref']);
+
+        // Vérifier que le schéma est enregistré dans components
+        $components = $this->builder->getComponentsSchemas();
+        self::assertArrayHasKey('Message', $components);
+
+        $messageSchema = $components['Message'];
+        self::assertEquals('object', $messageSchema['type']);
+        self::assertArrayHasKey('properties', $messageSchema);
+        self::assertArrayHasKey('text', $messageSchema['properties']);
+        self::assertArrayHasKey('type', $messageSchema['properties']);
+    }
+
+    public function testBuildFromNonMappableClassWithDetails(): void
+    {
+        $schema = $this->builder->buildFromTypeName(\Tivins\Webapp\Message::class, ['useRef' => false]);
+
+        // Vérifier la structure du schéma
+        self::assertEquals('object', $schema['type']);
+        self::assertArrayHasKey('properties', $schema);
+
+        // Vérifier la propriété text
+        self::assertArrayHasKey('text', $schema['properties']);
+        $textSchema = $schema['properties']['text'];
+        self::assertEquals('string', $textSchema['type']);
+
+        // Vérifier la propriété type (enum)
+        self::assertArrayHasKey('type', $schema['properties']);
+        $typeSchema = $schema['properties']['type'];
+        self::assertEquals('string', $typeSchema['type']);
+        self::assertArrayHasKey('enum', $typeSchema);
+        self::assertContains('error', $typeSchema['enum']);
+        self::assertContains('warning', $typeSchema['enum']);
+        self::assertContains('notice', $typeSchema['enum']);
+        self::assertContains('info', $typeSchema['enum']);
+        self::assertContains('debug', $typeSchema['enum']);
+
+        // Vérifier les propriétés requises
+        self::assertArrayHasKey('required', $schema);
+        self::assertContains('text', $schema['required']);
+        self::assertContains('type', $schema['required']);
+
+        // Vérifier la description de la classe
+        self::assertArrayHasKey('description', $schema);
+        self::assertStringContainsString('message', strtolower($schema['description']));
+    }
+
+    public function testBuildFromNonMappableClassRegistersInComponents(): void
+    {
+        $this->builder->buildFromTypeName(\Tivins\Webapp\Message::class);
+
+        $components = $this->builder->getComponentsSchemas();
+        self::assertArrayHasKey('Message', $components);
+
+        $messageSchema = $components['Message'];
+        self::assertEquals('object', $messageSchema['type']);
+        self::assertArrayHasKey('properties', $messageSchema);
+    }
+
+    public function testBuildFromArrayOfNonMappableClass(): void
+    {
+        $schema = $this->builder->buildFromTypeName(\Tivins\Webapp\Message::class . '[]');
+
+        // Doit retourner un schéma de tableau
+        self::assertEquals('array', $schema['type']);
+        self::assertArrayHasKey('items', $schema);
+
+        // Les items doivent référencer Message
+        $itemsSchema = $schema['items'];
+        self::assertArrayHasKey('$ref', $itemsSchema);
+        self::assertEquals('#/components/schemas/Message', $itemsSchema['$ref']);
+
+        // Vérifier que Message est dans components
+        $components = $this->builder->getComponentsSchemas();
+        self::assertArrayHasKey('Message', $components);
+    }
+
+    // === Tests pour les enums ===
+
+    public function testBuildFromBackedEnum(): void
+    {
+        $schema = $this->builder->buildFromTypeName(\Tivins\Webapp\MessageType::class);
+
+        // Un enum backed string doit retourner un schéma avec type string et enum
+        self::assertEquals('string', $schema['type']);
+        self::assertArrayHasKey('enum', $schema);
+
+        // Vérifier toutes les valeurs possibles
+        $enumValues = $schema['enum'];
+        self::assertCount(5, $enumValues);
+        self::assertContains('error', $enumValues);
+        self::assertContains('warning', $enumValues);
+        self::assertContains('notice', $enumValues);
+        self::assertContains('info', $enumValues);
+        self::assertContains('debug', $enumValues);
+    }
+
+    public function testBuildFromEnumInProperty(): void
+    {
+        // Tester qu'un enum dans une propriété d'une classe non-Mappable est correctement généré
+        $schema = $this->builder->buildFromTypeName(\Tivins\Webapp\Message::class, ['useRef' => false]);
+
+        // La propriété type doit être un enum
+        $typeProperty = $schema['properties']['type'];
+        self::assertEquals('string', $typeProperty['type']);
+        self::assertArrayHasKey('enum', $typeProperty);
+        self::assertCount(5, $typeProperty['enum']);
+    }
+
+    public function testBuildFromNonMappableClassCache(): void
+    {
+        // Premier appel
+        $schema1 = $this->builder->buildFromTypeName(\Tivins\Webapp\Message::class);
+        
+        // Deuxième appel (doit utiliser le cache)
+        $schema2 = $this->builder->buildFromTypeName(\Tivins\Webapp\Message::class);
+
+        // Les deux doivent être identiques
+        self::assertEquals($schema1, $schema2);
+
+        // Le schéma doit être dans components une seule fois
+        $components = $this->builder->getComponentsSchemas();
+        self::assertCount(1, $components);
+        self::assertArrayHasKey('Message', $components);
+    }
+
+    public function testBuildFromNonMappableClassWithNullableProperty(): void
+    {
+        // Créer une classe de test avec une propriété nullable
+        $schema = $this->builder->buildFromTypeName(TestNonMappableWithNullable::class, ['useRef' => false]);
+
+        self::assertArrayHasKey('properties', $schema);
+        self::assertArrayHasKey('name', $schema['properties']);
+        self::assertArrayHasKey('optional', $schema['properties']);
+
+        // La propriété nullable doit avoir nullable: true (pour les types simples nullable)
+        $optionalSchema = $schema['properties']['optional'];
+        self::assertArrayHasKey('nullable', $optionalSchema);
+        self::assertTrue($optionalSchema['nullable']);
+        self::assertEquals('string', $optionalSchema['type']);
+
+        // name ne doit pas être nullable
+        $nameSchema = $schema['properties']['name'];
+        self::assertArrayNotHasKey('nullable', $nameSchema);
+        self::assertEquals('string', $nameSchema['type']);
+
+        // name doit être dans required, optional ne doit pas l'être
+        self::assertArrayHasKey('required', $schema);
+        self::assertContains('name', $schema['required']);
+        self::assertNotContains('optional', $schema['required']);
+
+        // Vérifier la description de la classe
+        self::assertArrayHasKey('description', $schema);
+    }
 }
 
 // === Classes de test ===
@@ -568,4 +731,15 @@ class TestOrderItem extends Mappable
     public int $id;
     public int $quantity;
     public float $price;
+}
+
+// === Classes de test pour les classes non-Mappable ===
+
+/**
+ * Classe non-Mappable avec propriété nullable pour les tests.
+ */
+class TestNonMappableWithNullable
+{
+    public string $name;
+    public ?string $optional;
 }

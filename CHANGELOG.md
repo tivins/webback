@@ -27,6 +27,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
   - Support des enums purs avec extraction des noms des cases
   - Nouvelle méthode `buildFromEnum()` pour générer les schémas d'enums
 - 5 nouveaux tests complets pour valider les réponses multiples (168 tests au total, 520 assertions)
+- 8 nouveaux tests unitaires pour valider la génération de schémas pour les classes non-Mappable et les enums (176 tests au total, 578 assertions)
 
 ### Changed
 - `buildResponsesFromMapping()` utilise maintenant le schéma d'erreur standard pour les codes d'erreur (4xx, 5xx) lorsque le type est `'object'`
