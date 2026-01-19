@@ -617,7 +617,44 @@ class OpenAPIGeneratorTest extends TestCase
         self::assertArrayHasKey('application/json', $operation['responses']['500']['content']);
         self::assertArrayHasKey('schema', $operation['responses']['500']['content']['application/json']);
     }
+    public function testCustomObjectReturnType(): void
+    {
+        $api = new API();
+        $api->get('/test', function(Request $request, array $matches): HTTPResponse {
+            return new HTTPResponse(200, [new AnyObject()]);
+        });
+
+        $spec = $api->generateOpenAPISpec();
+        self::assertArrayHasKey('components', $spec);
+        self::assertArrayHasKey('schemas', $spec['components']);
+        self::assertArrayHasKey('AnyObject', $spec['components']['schemas']);
+    }
 }
+
+
+/**
+ * Classe pour tester le returnType custom.
+ */
+class AnyObject {
+    public string $name;
+}
+
+/**
+ * Handler avec returnType custom.
+ */
+class RouteAttributeWithCustomObjectReturnTypeHandler
+{
+    #[RouteAttribute(
+        name: 'Get something',
+        description: 'Retrieves something',
+        returnType: ['200' => AnyObject::class . '[]', '404' => 'object']
+    )]
+    public static function handle(Request $request, array $matches): HTTPResponse
+    {
+        return new HTTPResponse(200, [new AnyObject()]);
+    }
+}
+
 
 /**
  * Classe helper pour tester l'extraction de métadonnées des callable arrays.

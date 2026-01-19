@@ -5,6 +5,21 @@ Tous les changements notables de ce projet seront documentés dans ce fichier.
 Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.0.0/),
 et ce projet adhère au [Semantic Versioning](https://semver.org/lang/fr/).
 
+## [0.17.1] - 2026-01-18
+
+### Added
+- **Détection automatique des types d'objets dans les closures** :
+  - Analyse automatique du code source des closures pour détecter les types d'objets retournés dans les réponses HTTPResponse
+  - Support de la détection des tableaux d'objets (`[new ClassName()]`) et des objets uniques (`new ClassName()`)
+  - Résolution automatique des namespaces depuis le contexte du fichier source
+  - Nouvelle méthode `extractReturnTypeFromClosureSource()` pour analyser le code source des closures
+  - Nouvelle méthode `extractFirstParameter()` pour parser correctement les paramètres avec parenthèses/crochets imbriqués
+  - Nouvelle méthode `extractNamespaceFromFile()` pour extraire le namespace depuis un fichier source
+  - Nouvelle méthode `resolveClassName()` pour résoudre les noms de classes avec leur namespace
+
+### Fixed
+- Les objets personnalisés retournés dans les closures sont maintenant automatiquement détectés et documentés dans les schémas OpenAPI sans nécessiter d'annotations explicites
+
 ## [0.17.0] - 2026-01-18
 
 ### Added
